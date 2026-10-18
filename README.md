@@ -1,2 +1,3 @@
-# cybersecurity-notes
-A collection of cybersecurity notes for learning, reference, and continuous improvement.
+# Cybersecurity Notes
+
+A collection of organized cybersecurity notes created using LaTeX, with PDF versions available for easy reading and reference.

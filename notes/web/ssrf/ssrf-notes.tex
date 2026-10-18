@@ -1,0 +1,556 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Vulnerability Notes}
+\newcommand{\VulnerabilityTitle}{Server-Side Request Forgery (SSRF)}
+\newcommand{\SourceName}{PortSwigger Web Security Academy}
+\newcommand{\SourceURL}{https://portswigger.net/web-security/ssrf}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codegray}{RGB}{95,95,95}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{SSRF}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large Concepts, Attack Techniques, Detection, and Defenses\par}
+
+    \vfill
+
+    \begin{flushleft}
+        \textbf{Reference}\\
+        \href{\SourceURL}{\SourceName}
+
+        \vspace{0.6cm}
+        \textbf{Prepared by}\\
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Notes
+% ----------------------------------
+
+\nsection{What Is SSRF?}
+
+Server-Side Request Forgery (SSRF) is a vulnerability that allows an attacker to make a server-side application send a request to an unintended destination. The attacker influences the destination or content of a request that the server makes on their behalf.
+
+\textbf{Core idea:}
+
+\begin{lstlisting}
+Attacker -> Vulnerable application -> Target resource
+\end{lstlisting}
+
+A common example is a feature that retrieves an image or checks stock availability using a URL supplied by the user. If the destination is not properly validated, the attacker may replace the expected URL with one pointing to a local or internal service.
+
+\begin{lstlisting}
+Expected:  https://stock.example/api/product/6
+Modified:  http://127.0.0.1/admin
+\end{lstlisting}
+
+SSRF occurs when the application actually makes the unintended server-side request. Merely accepting or displaying a URL is not sufficient.
+
+\nsubsection{Why SSRF Matters}
+
+The vulnerable server may have network access, credentials, or trusted relationships that the attacker does not possess directly. Depending on the target and the application's behavior, SSRF may enable an attacker to:
+
+\begin{itemize}
+    \item Reach internal administrative panels, APIs, and services.
+    \item Access local endpoints on the application server.
+    \item Retrieve sensitive data if the response is exposed.
+    \item Interact with third-party systems from the organization's network.
+    \item Use the server as a bridge to reach another vulnerable service.
+\end{itemize}
+
+These outcomes are possibilities, not guarantees. Impact depends on reachable destinations, the privileges of the application, and whether response content or side effects can be observed.
+
+\nsubsection{SSRF vs. CSRF}
+
+\begin{itemize}
+    \item \textbf{SSRF:} tricks a server-side application into sending a request to an unintended destination.
+    \item \textbf{CSRF:} tricks a victim's browser into sending an unwanted request, potentially using the victim's authenticated session.
+\end{itemize}
+
+\begin{lstlisting}
+SSRF: Attacker -> Vulnerable server -> Target
+CSRF: Attacker -> Victim's browser -> Target
+\end{lstlisting}
+
+\newpage
+\nsection{Impact of SSRF}
+
+\nsubsection{Access to the Application Server}
+
+An attacker may target services listening on the same machine as the vulnerable application. Loopback references commonly include:
+
+\begin{lstlisting}
+http://127.0.0.1/
+http://localhost/
+\end{lstlisting}
+
+For example, a stock-check feature might send a request to a user-provided URL:
+
+\begin{lstlisting}
+POST /product/stock HTTP/1.0
+Content-Type: application/x-www-form-urlencoded
+stockApi=http://stock.example:8080/product/stock/check?productId=6&storeId=1
+\end{lstlisting}
+
+If validation is inadequate, the destination might be changed to:
+
+\begin{lstlisting}
+stockApi=http://localhost/admin
+\end{lstlisting}
+
+If the local endpoint is reachable and its response is returned by the application, the attacker may be able to read the administrative page.
+
+\nsubsection{Access to Other Back-End Systems}
+
+The server may be able to reach systems on private networks that are not exposed to the Internet. Examples include internal APIs, administrative interfaces, and other web applications.
+
+\begin{lstlisting}
+Attacker -> Vulnerable server -> Internal service
+\end{lstlisting}
+
+Private addresses often belong to ranges such as \texttt{10.0.0.0/8}, \texttt{172.16.0.0/12}, and \texttt{192.168.0.0/16}. Whether a target is reachable depends on the server's network configuration and outbound controls.
+
+\nsubsection{Sensitive Data and Further Compromise}
+
+If a reachable service returns sensitive information and the vulnerable application exposes that response, SSRF may disclose credentials, tokens, API keys, configuration, or other confidential data.
+SSRF may also be a step in a larger attack chain. For example, it may provide access to an internal service that contains a separate vulnerability. SSRF alone does not automatically provide Remote Code Execution (RCE).
+
+\nsubsection{Requests to External Systems}
+
+SSRF can cause requests to external systems to originate from the vulnerable server. This may allow unintended interactions with third-party services or make traffic appear to originate from the organization's infrastructure. The impact depends on the destination, request behavior, and applicable network restrictions.
+
+\newpage
+\nsection{Common SSRF Attack Surfaces}
+
+\nsubsection{User-Controlled URLs}
+
+The most obvious attack surface is a parameter that accepts a complete URL, such as an image importer, URL previewer, webhook tester, or stock-check feature.
+During testing, identify where the input is used and determine whether the server actually fetches the supplied destination. Use a controlled endpoint first, and observe both the application's response and any external interaction.
+
+\nsubsection{Partial URLs and Hostname Inputs}
+
+An application may accept only a hostname or a URL fragment and build the final URL itself:
+
+\begin{lstlisting}
+url = "https://" + host + "/api/data"
+\end{lstlisting}
+
+Even if the user cannot control the complete URL, controlling the hostname or another component may influence the server-side destination.
+
+\nsubsection{URLs Embedded in Structured Data}
+
+Some parsers or processing components retrieve external resources while processing structured input.
+
+\nsubsubsection{SSRF via XXE}
+
+XML External Entity (XXE) can lead to SSRF when an XML parser processes an external entity that references a URL. For example:
+
+\begin{lstlisting}
+<?xml version="1.0"?>
+<!DOCTYPE data [
+  <!ENTITY example SYSTEM "http://internal.example/">
+]>
+<data>&example;</data>
+\end{lstlisting}
+
+This depends on the parser configuration and whether external entity processing is enabled. An XML endpoint is not automatically vulnerable; the relevant question is whether parsing the input triggers a server-side request.
+
+\nsubsection{The Referer Header}
+
+Some analytics or back-end components may retrieve a URL supplied in the \texttt{Referer} header. For example:
+
+\begin{lstlisting}
+GET /product?id=10 HTTP/1.1
+Host: shop.example
+Referer: https://external.example/article
+\end{lstlisting}
+
+Recording the header does not itself constitute SSRF. The vulnerability exists only if a component uses the supplied value to initiate a request.
+
+\newpage
+\nsection{SSRF Against the Server and Internal Services}
+
+\nsubsection{SSRF Against the Server Itself}
+
+In this pattern, the application makes a request to a service running on the same host. Common loopback identifiers include \texttt{127.0.0.1} and \texttt{localhost}. The target path may refer to an administrative endpoint or another service that trusts local requests.
+
+\begin{lstlisting}
+Attacker -> Application -> Loopback interface -> Local resource
+\end{lstlisting}
+
+A successful request does not guarantee useful access: the endpoint must be listening, reachable from the relevant process, and willing to perform the requested operation.
+
+\nsubsection{Exploiting Trust Relationships}
+
+Some systems apply weaker authentication or access controls to requests that appear to originate from a trusted source, such as the local machine or an internal network. SSRF can abuse this trust boundary by making the request from the server's network position.
+
+\nsubsubsection{Internal Services and Private Addresses}
+
+A server-side request may target internal addresses or services on non-standard ports. Testing should establish whether the application can reach the target and whether the target's behavior provides meaningful evidence.
+
+\nsubsubsection{Administrative Interfaces and Disaster-Recovery Services}
+
+Internal administrative panels, monitoring interfaces, or disaster-recovery services may be exposed only to trusted networks. If such a service is reachable through SSRF, the security impact depends on its authentication requirements and available actions.
+
+\nsubsection{The Server as a Network Bridge}
+
+SSRF can bridge the gap between an external attacker and systems reachable only from the vulnerable server. The server's network access determines which targets may be reachable; the vulnerable application's response behavior determines what the attacker can learn or cause.
+
+\newpage
+\nsection{Bypassing SSRF Defenses}
+
+Input filters often attempt to block dangerous destinations. Bypasses become possible when validation checks a textual representation of the input rather than the normalized destination that the HTTP client ultimately contacts.
+
+\nsubsection{Blacklist-Based Filters}
+
+A blacklist may reject strings such as:
+
+\begin{lstlisting}
+127.0.0.1
+localhost
+/admin
+\end{lstlisting}
+
+This approach is fragile because the same destination may be represented in different ways, and different components may parse or normalize the input differently.
+
+\nsubsubsection{Alternative IP Representations}
+
+Some URL parsers and networking libraries accept alternative representations of the IPv4 loopback address, including:
+
+\begin{lstlisting}
+127.0.0.1
+2130706433
+017700000001
+127.1
+\end{lstlisting}
+
+Acceptance depends on the parser and networking implementation. These forms should be treated as parser-dependent test cases, not universal bypasses.
+
+\nsubsubsection{Hostnames That Resolve to Loopback}
+
+A filter that checks only the literal strings \texttt{127.0.0.1} and \texttt{localhost} may miss a hostname that resolves to a loopback address. For example, PortSwigger discusses \texttt{spoofed.burpcollaborator.net} in this context.
+Checking a hostname as a string is not equivalent to validating the IP address to which it resolves. DNS behavior and the time of resolution can affect the outcome.
+
+\nsubsubsection{Encoding and Case Variations}
+
+URL encoding can represent characters using percent-encoded sequences. For example, \texttt{\%2F} represents a forward slash (\texttt{/}). If one component validates encoded input and another decodes it later, the two stages may interpret the same input differently.
+Case variation may also expose weak, case-sensitive string checks. However, case changes are not a universal bypass: effectiveness depends on the value being checked and how the application interprets it.
+
+\nsubsection{Whitelist-Based Filters}
+
+A whitelist permits only destinations that match predefined rules, such as an approved hostname. It is generally more restrictive than a blacklist, but it can still fail when implemented with simple string matching or inconsistent URL parsing.
+
+\nsubsubsection{URL Parsing Inconsistencies}
+
+A URL should be parsed using a well-defined parser, and validation should apply to the parsed components rather than a substring of the raw input. Pay particular attention to the hostname, port, scheme, user-info component, path, and the final destination selected by the HTTP client.
+The key question is whether the validator and the request-making component interpret the URL in the same way. Parser differences can cause a filter to approve one apparent destination while the client connects to another.
+
+\nsubsubsection{URL Encoding and Double Encoding}
+
+Encoding can create inconsistencies when different components decode input a different number of times or at different stages. Testing should determine how the application normalizes the input before validation and before making the request. Double encoding is not inherently a bypass; it matters only when the processing chain handles the representations inconsistently.
+
+\nsubsection{Bypassing Filters Through Open Redirects}
+
+An open redirect allows an attacker to influence a redirect destination. If an SSRF filter validates only the initial URL and the server-side HTTP client follows redirects, the request may reach a destination that would otherwise be blocked.
+
+\begin{lstlisting}
+Allowed URL -> Redirect response -> Restricted destination
+\end{lstlisting}
+
+A possible sequence is:
+
+\begin{enumerate}
+    \item The application validates the initial URL.
+    \item The initial host is accepted.
+    \item The server makes the request.
+    \item The server receives a redirect response.
+    \item The HTTP client follows the redirect without adequate revalidation.
+\end{enumerate}
+
+Common redirect status codes include \texttt{301}, \texttt{302}, \texttt{303}, \texttt{307}, and \texttt{308}. Client behavior varies, including how methods and request bodies are handled. A redirect-based bypass requires a usable redirect path and a client that follows it.
+
+\nsubsection{Why Filter Bypasses Work}
+
+A request may pass through several stages:
+
+\begin{lstlisting}
+User-supplied URL
+      |
+      v
+Input validation
+      |
+      v
+URL parsing / normalization
+      |
+      v
+DNS resolution
+      |
+      v
+Redirect handling
+      |
+      v
+Final connection destination
+
+\end{lstlisting}
+
+If validation does not account for these stages, the filter may approve an input that eventually reaches a restricted destination. The underlying issue is a mismatch between the representation checked by the filter and the destination actually contacted.
+
+\newpage
+\nsection{Blind SSRF}
+
+\nsubsection{Overview}
+
+Blind SSRF occurs when an attacker can trigger a server-side request but cannot directly see the response from the target in the application's response. The request may still have effects, but the lack of visible response content limits what can be learned.
+
+\begin{itemize}
+    \item \textbf{Normal SSRF:} the application exposes some of the target response, such as its body or status.
+    \item \textbf{Blind SSRF:} the request occurs, but the target response is not directly returned to the attacker.
+\end{itemize}
+
+A generic message such as \texttt{Request sent successfully} does not show whether the target returned useful content.
+
+\nsubsection{Out-of-Band Application Security Testing (OAST)}
+
+OAST detects interactions that happen outside the application's normal response. During an authorized test, supply a unique URL pointing to an endpoint you control or a tool-provided interaction domain, then check whether the request-processing chain contacts it.
+
+\begin{lstlisting}
+Tester -> Vulnerable application -> Monitored endpoint
+                                      |
+                                      v
+                              Interaction recorded
+\end{lstlisting}
+
+An observed interaction is evidence that a component contacted or resolved the supplied domain. It does not, by itself, prove that an internal resource is exploitable.
+
+\nsubsection{Burp Collaborator}
+
+Burp Collaborator is an OAST tool that provides unique domains and records interactions associated with them. A basic testing workflow is:
+
+\begin{enumerate}
+    \item Generate a unique Collaborator domain.
+    \item Place it in a suspected SSRF input.
+    \item Submit the request to the application.
+    \item Check Collaborator for incoming interactions.
+    \item Interpret the interaction type and timing in context.
+\end{enumerate}
+
+Example input:
+
+\begin{lstlisting}
+stockApi=http://<unique-id>.burpcollaborator.net/
+\end{lstlisting}
+
+Use a unique identifier for each test where practical, so that observed interactions can be correlated with the request that triggered them.
+
+\nsubsection{DNS Interaction vs. HTTP Interaction}
+
+DNS resolution usually occurs before an HTTP connection can be made:
+
+\begin{lstlisting}
+Hostname -> DNS lookup -> IP address -> HTTP connection
+\end{lstlisting}
+
+Possible observations include:
+
+\begin{itemize}
+    \item \textbf{DNS and HTTP interaction:} the domain was resolved and an HTTP request reached the monitored endpoint.
+    \item \textbf{DNS only:} a lookup occurred, but no HTTP interaction was observed.
+\end{itemize}
+
+DNS-only interactions may result from outbound HTTP filtering, connection failures, protocol restrictions, or the application's behavior. A DNS lookup alone does not prove that an HTTP request reached the destination. Conversely, no recorded interaction does not conclusively prove that no request was attempted.
+
+\nsubsection{Limitations and Internal Probing}
+
+Without a visible response, an attacker cannot directly read internal pages, inspect target response headers, or reliably distinguish successful and failed requests unless another signal is available.
+Blind SSRF may still help probe internal systems if there is an observable side channel, such as an out-of-band interaction or another measurable difference. If all responses and effects are hidden, reliable enumeration may not be possible.
+
+\nsubsection{Vulnerability Chaining and Further Impact}
+
+Blind SSRF may provide a way to reach a target that the attacker cannot access directly. If that target contains a separate vulnerability, the two issues may be chained:
+
+\begin{lstlisting}
+Blind SSRF -> Reach internal service
+           -> Exploit separate vulnerability
+           -> Potential further impact
+\end{lstlisting}
+
+Blind SSRF does not automatically lead to RCE. A second weakness and the conditions required to exploit it must exist.
+An attacker-controlled server may also return a crafted HTTP response that exercises a vulnerability in the application's HTTP client or response-processing logic. The outcome depends on the client implementation and the presence of a separate exploitable weakness; a crafted response does not inherently produce code execution.
+
+\newpage
+\nsection{Testing Workflow}
+
+Use this checklist when investigating a suspected SSRF issue in an authorized environment:
+
+\begin{enumerate}
+    \item \textbf{Identify inputs:} look for full URLs, hostnames, partial URLs, URL imports, webhook features, XML input, and relevant headers.
+    \item \textbf{Understand the request path:} determine which component consumes the input and whether it makes a server-side request.
+    \item \textbf{Start with a controlled destination:} use a domain or endpoint you control to test for outbound interaction.
+    \item \textbf{Compare observable behavior:} review the response, timing, status changes, and out-of-band interactions.
+    \item \textbf{Test validation boundaries:} in a lab or authorized scope, assess how the application handles loopback references, private addresses, URL parsing, encoding, DNS resolution, and redirects.
+    \item \textbf{Assess impact carefully:} distinguish confirmed request behavior from assumptions about data disclosure, internal access, or further exploitation.
+    \item \textbf{Record evidence:} save the relevant request, response, payload, and observed interaction so the finding can be reproduced.
+\end{enumerate}
+
+\newpage
+\nsection{Defensive Considerations}
+
+The weaknesses described above show why checking a few blocked strings is not sufficient. Effective SSRF prevention should validate the destination that will actually be contacted, not merely the original input text.
+
+\begin{itemize}
+    \item Prefer an allowlist of explicitly approved destinations when the feature requires only a known set of hosts.
+    \item Parse and normalize URLs consistently before validating their components.
+    \item Resolve hostnames and validate the resulting addresses against the intended network policy.
+    \item Revalidate each redirect destination, or disable automatic redirects when they are not required.
+    \item Apply outbound network restrictions so the application cannot reach unnecessary internal services.
+    \item Avoid exposing raw responses from fetched resources when the feature does not need to return them.
+    \item Treat DNS results and URL parser behavior as part of the security boundary, not as string-matching details.
+\end{itemize}
+
+These controls should be designed together. Application-level validation and network-level restrictions provide complementary protection.
+
+\newpage
+\nsection{Quick Reference}
+
+\vspace*{0.5cm}
+
+\begin{center}
+    \begin{tabular}{>{\raggedright\arraybackslash}p{0.28\textwidth} >{\raggedright\arraybackslash}p{0.63\textwidth}}
+        \toprule
+        \textbf{Topic}  & \textbf{Remember}                                                              \\
+        \midrule
+        SSRF            & The server makes a request to a destination influenced by the attacker.        \\
+        Impact          & Depends on reachable systems, application privileges, and observable behavior. \\
+        Blacklists      & Can fail because of alternate representations and inconsistent normalization.  \\
+        Whitelists      & Must validate parsed URL components and the actual destination.                \\
+        Redirects       & Revalidate the destination after every redirect or disable redirects.          \\
+        Blind SSRF      & Use OAST to detect interactions when the target response is hidden.            \\
+        DNS-only result & Confirms a lookup, not necessarily a successful HTTP request.                  \\
+        RCE             & Requires a separate exploitable weakness; SSRF alone does not guarantee RCE.   \\
+        \bottomrule
+    \end{tabular}
+\end{center}
+
+\end{document}

@@ -4,6 +4,7 @@ This directory contains notes on web security vulnerabilities and their practica
 
 ## Topics
 
-| Topic         | Description                                     |
-| ------------- | ----------------------------------------------- |
-| [SSRF](ssrf/) | Vulnerability notes and practical lab writeups. |
+| Topic                                   | Description                                     |
+| --------------------------------------- | ----------------------------------------------- |
+| [SSRF](ssrf/)                           | Vulnerability notes and practical lab writeups. |
+| [Command Injection](command-injection/) | Vulnerability notes and practical lab writeups. |

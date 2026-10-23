@@ -1,0 +1,648 @@
+\documentclass[12pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{microtype}
+
+% Custom heading aliases
+\newcommand{\nsection}[1]{\section{#1}}
+\newcommand{\nsubsection}[1]{\subsection{#1}}
+
+% ---------- Hyperlinks ----------
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    urlcolor=blue!60!black,
+    pdftitle={OS Command Injection Notes},
+    pdfauthor={Cybersecurity Notes}
+}
+
+% ---------- Colors ----------
+\definecolor{primary}{HTML}{17365D}
+\definecolor{secondary}{HTML}{287271}
+\definecolor{codebg}{HTML}{F4F6F8}
+\definecolor{codeframe}{HTML}{D5DCE5}
+\definecolor{commentgreen}{HTML}{477A45}
+\definecolor{keywordblue}{HTML}{2457A7}
+\definecolor{stringred}{HTML}{A23B3B}
+
+% ---------- Page Style ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{primary}{Web Application Security}}
+\fancyhead[R]{\textcolor{secondary}{OS Command Injection}}
+\fancyfoot[C]{\thepage}
+\setlength{\headheight}{15pt}
+
+% ---------- Section Formatting ----------
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}
+  {\thesection}{0.7em}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}
+  {\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{primary}}
+  {\thesubsubsection}{0.7em}{}
+
+% ---------- Table of Contents ----------
+\setcounter{tocdepth}{3}
+\renewcommand{\contentsname}{Table of Contents}
+\renewcommand{\cftsecfont}{\bfseries}
+\renewcommand{\cftsecpagefont}{\bfseries}
+\setlength{\cftbeforesecskip}{4pt}
+
+% ---------- Lists ----------
+\setlist[itemize]{itemsep=3pt,topsep=5pt}
+\setlist[enumerate]{itemsep=3pt,topsep=5pt}
+
+% ---------- Code Listings ----------
+\lstdefinestyle{terminal}{
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{keywordblue}\bfseries,
+    commentstyle=\color{commentgreen}\itshape,
+    stringstyle=\color{stringred},
+    breaklines=true,
+    breakatwhitespace=false,
+    keepspaces=true,
+    showstringspaces=false,
+    columns=fullflexible,
+    tabsize=4,
+    framexleftmargin=5pt,
+    framexrightmargin=5pt,
+    framesep=5pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt
+}
+\lstset{style=terminal}
+
+% Section customization
+\setcounter{secnumdepth}{0}
+
+% ---------- Document ----------
+\begin{document}
+
+% ---------- Cover Page ----------
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Large\textcolor{secondary}{Cybersecurity notes}\par}
+    \vspace{1.1cm}
+
+    {\Huge\bfseries\textcolor{primary}{OS Command Injection}\par}
+    \vspace{0.5cm}
+
+    {\Large Vulnerability Notes and Techniques\par}
+    \vspace{1.5cm}
+
+    \rule{0.8\textwidth}{1pt}
+    \vspace{1cm}
+
+    {\large
+        A concise reference covering command execution,
+        injection techniques, blind detection, and prevention.
+        \par}
+
+    \vfill
+
+    \begin{flushleft}
+        \centering
+        \textbf{Prepared by}\\
+        \vspace{0.3cm}
+        Youssef Reda
+    \end{flushleft}
+\end{titlepage}
+
+% ---------- Table of Contents ----------
+\tableofcontents
+\newpage
+
+% section 1
+\nsection{OS Command Injection}
+
+\vspace{0.5cm}
+\nsubsection{Definition}
+
+OS Command Injection, also known as Shell Injection, occurs
+when an application passes untrusted input to an operating-system
+command unsafely, allowing an attacker to alter the intended
+command execution.
+
+\vspace{0.5cm}
+\nsubsection{Impact}
+
+\begin{itemize}
+    \item \textbf{Remote Code Execution (RCE):}
+          Execute commands with the privileges of the vulnerable process.
+    \item \textbf{Data Exposure:}
+          Read files or sensitive information accessible to the process.
+    \item \textbf{Application Compromise:}
+          Interfere with the application or its execution environment.
+    \item \textbf{Privilege Escalation and Lateral Movement:}
+          These may be possible when additional permissions or reachable
+          systems permit them.
+\end{itemize}
+
+The actual impact depends on process privileges, system
+configuration, and reachable resources.
+
+\vspace{0.5cm}
+\nsubsection{Common Causes}
+
+\begin{itemize}
+    \item Concatenating user-controlled input into a shell command.
+    \item Unsafe use of functions such as PHP \texttt{system()},
+          \texttt{exec()}, or \texttt{shell\_exec()}.
+    \item Relying on weak filtering or blacklists of shell metacharacters.
+\end{itemize}
+
+\vspace{0.5cm}
+\nsubsection{Vulnerable Example}
+
+Consider a PHP application that constructs a command using
+an IP address supplied by the user:
+
+\begin{lstlisting}[language=PHP]
+system("ping " . $ip);
+\end{lstlisting}
+
+If \texttt{\$ip} is not handled safely, shell syntax may allow
+execution beyond the intended \texttt{ping} command.
+
+% section 2
+\newpage
+\nsection{How Command Injection Works}
+
+\vspace{0.5cm}
+\nsubsection{Example Scenario}
+
+A store availability feature accepts a product ID and store ID.
+The application invokes a legacy script using the supplied values:
+
+\begin{lstlisting}
+GET /stockStatus?productID=381&storeID=29
+\end{lstlisting}
+
+The application executes:
+
+\begin{lstlisting}
+stockreport.pl 381 29
+\end{lstlisting}
+
+A vulnerable implementation may concatenate the parameters
+into a command:
+
+\begin{lstlisting}[language=PHP]
+system("stockreport.pl " . $productID . " " . $storeID);
+\end{lstlisting}
+
+\vspace{0.5cm}
+\nsubsection{Injection Example}
+
+An input such as the following may alter how a Unix-like shell
+parses the command:
+
+\begin{lstlisting}
+& echo aiwefwlguh &
+\end{lstlisting}
+
+The resulting command may become:
+
+\begin{lstlisting}
+stockreport.pl & echo aiwefwlguh & 29
+\end{lstlisting}
+
+The shell interprets the separators as control syntax, so the
+injected \texttt{echo} can execute separately from the intended
+script. Output such as \texttt{aiwefwlguh} is evidence that the
+injected command ran.
+
+\vspace{0.5cm}
+\nsubsection{Why a Trailing Separator Can Matter}
+
+Compare the following inputs:
+
+\begin{lstlisting}
+& echo aiwefwlguh
+\end{lstlisting}
+
+\begin{lstlisting}
+& echo aiwefwlguh &
+\end{lstlisting}
+
+Without the final separator, the remaining original argument
+may become an argument to \texttt{echo}. With it, the shell
+treats the remaining text as a separate command segment.
+In typical Unix-like shells, \texttt{\&} runs the preceding
+command in the background. Exact behavior depends on the shell.
+
+% section 3
+\newpage
+\nsection{Useful Reconnaissance Commands}
+
+\vspace{0.3cm}
+
+After confirming command execution in an authorized environment,
+basic commands can help identify the execution context.
+
+\vspace{0.3cm}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.42\textwidth}
+        >{\raggedright\arraybackslash}p{0.48\textwidth}}
+    \toprule
+    \textbf{Purpose}                 & \textbf{Command}       \\
+    \midrule
+    Current user -- Linux/Windows    & \texttt{whoami}        \\
+    OS details -- Linux              & \texttt{uname -a}      \\
+    OS details -- Windows            & \texttt{ver}           \\
+    Network configuration -- Linux   & \texttt{ifconfig}      \\
+    Network configuration -- Windows & \texttt{ipconfig /all} \\
+    Network connections and ports    & \texttt{netstat -an}   \\
+    Running processes -- Linux       & \texttt{ps -ef}        \\
+    Running processes -- Windows     & \texttt{tasklist}      \\
+    \bottomrule
+\end{longtable}
+
+% section 4
+\newpage
+\nsection{Blind OS Command Injection}
+
+\vspace{0.4cm}
+\nsubsection{Definition}
+
+Blind command injection occurs when a command executes but its
+output is not returned in the HTTP response. Detection therefore
+depends on indirect evidence rather than direct output.
+
+\vspace{0.4cm}
+\nsubsection{Detection Methods}
+
+\begin{itemize}
+    \item \textbf{Time-based detection:}
+          Cause a measurable delay and compare response times.
+    \item \textbf{Output redirection:}
+          Write output to a file and retrieve it later, if accessible.
+    \item \textbf{Out-of-Band (OAST):}
+          Trigger an external DNS or HTTP interaction that can be
+          observed by the tester.
+\end{itemize}
+
+\vspace{0.4cm}
+\nsubsection{Time-Based Detection}
+
+Example Linux payload:
+
+\begin{lstlisting}
+& ping -c 10 127.0.0.1 &
+\end{lstlisting}
+
+The \texttt{-c 10} option asks \texttt{ping} to send ten packets;
+it does not directly specify a ten-second delay. On many Linux
+systems this takes roughly ten seconds, but actual timing varies.
+A consistent response delay close to the expected duration can
+indicate that the injected command executed.
+
+\vspace{0.4cm}
+\nsubsection{Redirecting Command Output}
+
+Output redirection writes command output to a file rather than
+the HTTP response.
+
+\begin{lstlisting}
+command > output.txt 2>&1
+\end{lstlisting}
+
+\begin{itemize}
+    \item \texttt{>} redirects standard output.
+    \item \texttt{2>\&1} sends standard error to the same destination.
+\end{itemize}
+
+Whether the file can be retrieved depends on its path, permissions,
+and server configuration.
+The \textbf{web root} is the directory from which the web server
+serves files. Common examples include:
+
+\begin{itemize}
+    \item Apache on Linux: \texttt{/var/www/html/}
+    \item IIS on Windows: \texttt{C:\textbackslash inetpub\textbackslash wwwroot\textbackslash}
+\end{itemize}
+
+These are examples only; actual locations vary. Files in the web
+root may be publicly accessible depending on the configuration.
+
+\newpage
+\nsubsection{Out-of-Band Application Security Testing (OAST)}
+
+OAST detects interactions between the target and an external
+server controlled by the tester. It is useful when command output
+is hidden and file-based retrieval is unavailable.
+
+\begin{lstlisting}
+Injected input
+     |
+     v
+Vulnerable application
+     |
+     v
+Command executes
+     |
+     v
+Outbound DNS/HTTP request
+     |
+     v
+Tester observes interaction
+
+\end{lstlisting}
+DNS is commonly used because it is lightweight and often permitted
+by network rules. However, DNS traffic can be blocked, proxied,
+or cached.
+An observed interaction is evidence of an outbound lookup or
+request; it does not automatically prove that every stage of a
+larger exploit succeeded.
+
+\vspace{0.5cm}
+\nsubsection{Limitations and Impact}
+
+Blind variants may hide command output, errors, and exit status.
+Detection depends on:
+
+\begin{itemize}
+    \item Timing differences.
+    \item Application behavior.
+    \item Accessible output files.
+    \item External network interactions.
+\end{itemize}
+
+Impact depends on process privileges, filesystem permissions,
+outbound network restrictions, and the data or systems reachable
+from the application.
+
+% section 5
+\newpage
+\nsection{Shell Metacharacters and Injection Techniques}
+
+\vspace{0.5cm}
+\nsubsection{Command Separators and Operators}
+
+Shell metacharacters are interpreted as syntax rather than
+ordinary text. Common operators include:
+
+\begin{longtable}{>{\centering\arraybackslash}p{0.18\textwidth}
+        >{\raggedright\arraybackslash}p{0.72\textwidth}}
+    \toprule
+    \textbf{Operator} & \textbf{Typical behavior}       \\
+    \midrule
+    \texttt{\&}       &
+    In Unix-like shells, runs the preceding command in the background;
+    in Windows \texttt{cmd.exe}, separates commands.    \\
+    \texttt{\&\&}     &
+    Runs the second command only if the first succeeds. \\
+    \texttt{||}       &
+    Runs the second command only if the first fails.    \\
+    \texttt{|}        &
+    Pipes standard output from the first command to standard input
+    of the second.                                      \\
+    \texttt{;}        &
+    In common Unix-like shells, separates commands that run sequentially
+    regardless of the preceding command's success.      \\
+    Newline           &
+    Can terminate one command and start another. URL-encoded line
+    feed is \texttt{\%0A}.                              \\
+    \bottomrule
+\end{longtable}
+
+Operator support and behavior depend on the operating system,
+shell, and application context.
+
+\vspace{0.5cm}
+\nsubsection{Command Substitution}
+
+In Unix-like shells, command substitution runs a command and
+replaces the expression with its standard output.
+
+\begin{lstlisting}
+\`command\`
+$(command)
+\end{lstlisting}
+
+Example:
+
+\begin{lstlisting}
+echo $(whoami)
+\end{lstlisting}
+
+The shell runs \texttt{whoami} and passes its output to
+\texttt{echo}.
+
+\newpage
+\nsubsection{Quoted Context}
+
+Input may be placed inside single or double quotes:
+
+\begin{lstlisting}
+"User Input"
+'User Input'
+\end{lstlisting}
+
+When assessing a possible injection:
+
+\begin{itemize}
+    \item Identify how the application builds the command.
+    \item Determine whether the input is inside a quoted string.
+    \item Check whether the input must escape that context before
+          shell syntax can be interpreted.
+\end{itemize}
+
+Single and double quotes behave differently, and exact rules
+vary by shell.
+
+\vspace{0.5cm}
+\nsubsection{In-Band vs. Blind Injection}
+
+\begin{itemize}
+    \item \textbf{In-band:} Command output is visible in the HTTP response.
+    \item \textbf{Blind:} Output is hidden; detection uses timing,
+          OAST, behavior changes, or accessible output files.
+\end{itemize}
+
+% section 6
+\newpage
+\nsection{Shell Expansion Concepts}
+
+\vspace{0.5cm}
+\nsubsection{Environment Variables and Parameter Expansion}
+
+Environment variables store information used by processes
+and shell scripts.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.2\textwidth}
+        >{\raggedright\arraybackslash}p{0.7\textwidth}}
+    \toprule
+    \textbf{Variable} & \textbf{Purpose}                              \\
+    \midrule
+    \texttt{PATH}     & Directories searched for executable programs. \\
+    \texttt{HOME}     & The user's home directory.                    \\
+    \texttt{USER}     & Username, when defined.                       \\
+    \texttt{PWD}      & Current working directory, when defined.      \\
+    \bottomrule
+\end{longtable}
+
+Parameter expansion substitutes a variable reference with its
+value before command execution:
+
+\begin{lstlisting}
+echo "$HOME"
+\end{lstlisting}
+
+\vspace{0.5cm}
+\nsubsection{Standard Input and Text Utilities}
+
+Standard input (\texttt{stdin}) is a stream from which a process
+reads data. Many Unix utilities can process data from standard
+input, allowing commands to pass information between processes.
+Text utilities commonly perform tasks such as:
+
+\begin{itemize}
+    \item Converting letter case.
+    \item Reversing text.
+    \item Encoding and decoding data.
+    \item Searching and filtering content.
+\end{itemize}
+
+\vspace{0.5cm}
+\nsubsection{PATH Security}
+
+The \texttt{PATH} variable lists directories searched for
+executable programs.
+An unsafe configuration can cause an unintended executable
+to run when a command is invoked by name. Applications should
+use trusted execution paths and avoid relying on
+attacker-influenced environment settings.
+
+% section 7
+\newpage
+\nsection{Preventing OS Command Injection}
+
+\vspace{0.5cm}
+\nsubsection{Preferred Defenses}
+
+\begin{itemize}
+    \item \textbf{Avoid OS commands:}
+          Use native platform APIs or libraries to perform the required task.
+    \item \textbf{Avoid shell invocation:}
+          If an external executable is necessary, use process APIs that
+          pass the executable and each argument separately.
+    \item \textbf{Validate input:}
+          Apply strict allowlist validation based on the expected type
+          and format.
+    \item \textbf{Use least privilege:}
+          Run the application with only the permissions it needs.
+    \item \textbf{Restrict access:}
+          Limit filesystem permissions and unnecessary outbound
+          network access.
+    \item \textbf{Monitor execution:}
+          Log and investigate unexpected processes and outbound connections.
+\end{itemize}
+
+\vspace{0.5cm}
+\nsubsection{Input Validation}
+
+Validation should match the intended data.
+
+\begin{itemize}
+    \item \textbf{Allowlist:}
+          Accept only predefined permitted values when the input
+          represents a fixed choice.
+    \item \textbf{Numeric validation:}
+          Require a valid numeric value when a number is expected.
+    \item \textbf{Alphanumeric validation:}
+          Restrict to letters and numbers only when the application's
+          requirements allow it.
+\end{itemize}
+
+Example of allowed operation values:
+
+\begin{lstlisting}
+ping
+status
+version
+\end{lstlisting}
+
+Valid numeric input:
+
+\begin{lstlisting}
+12345
+\end{lstlisting}
+
+Invalid numeric input:
+
+\begin{lstlisting}
+123; command
+\end{lstlisting}
+
+\vspace{0.5cm}
+\nsubsection{Avoid Blacklist-Only Filtering}
+
+Removing or escaping selected metacharacters is not a reliable
+standalone defense. Alternative encodings, shell-specific syntax,
+and missed characters may bypass incomplete filters.
+Prefer avoiding shell interpretation and using safe APIs.
+Validation and escaping are supplementary controls, not substitutes
+for safe command construction.
+
+% section 8
+\newpage
+\nsection{Quick Reference}
+
+\vspace{0.5cm}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.25\textwidth}
+        >{\raggedright\arraybackslash}p{0.65\textwidth}}
+    \toprule
+    \textbf{Topic}    & \textbf{Remember}                            \\
+    \midrule
+    Command injection &
+    Untrusted input changes how an OS command is parsed or executed. \\
+    Impact            &
+    Depends on the privileges and resources available to the
+    application process.                                             \\
+    Metacharacters    &
+    Separators, pipes, substitutions, and quoting can alter
+    shell interpretation.                                            \\
+    In-band injection &
+    Output is visible in the HTTP response.                          \\
+    Blind injection   &
+    Output is hidden; use timing, OAST, behavior changes, or
+    accessible files to detect it.                                   \\
+    OAST              &
+    An observed external interaction is evidence of a request or
+    lookup, not proof of every exploit stage.                        \\
+    Blacklists        &
+    Fragile when used as the main defense.                           \\
+    Best defense      &
+    Avoid shell commands; otherwise pass arguments separately
+    and validate input.                                              \\
+    Least privilege   &
+    Limits the damage if command execution is compromised.           \\
+    \bottomrule
+\end{longtable}
+
+\end{document}

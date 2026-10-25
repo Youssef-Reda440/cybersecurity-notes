@@ -1,0 +1,285 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Lab Writeups}
+\newcommand{\VulnerabilityTitle}{Access control vulnerabilities}
+\newcommand{\SourceName}{PortSwigger Web Security Academy}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codegray}{RGB}{95,95,95}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{Access Control Labs}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large PortSwigger Web Security Academy — Lab Solutions\par}
+
+    \vfill
+    \begin{flushleft}
+        \vspace{0.6cm}
+        \textbf{Prepared by}\par
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Notes
+% ----------------------------------
+
+\section{Lab: Unprotected Admin Functionality}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Navigate to \texttt{/robots.txt} and inspect the \texttt{Disallow} directive to discover the admin panel path.
+    \item Navigate to the disclosed path, \texttt{/administrator-panel}.
+    \item Delete the user \texttt{carlos} from the admin panel.
+\end{enumerate}
+
+\section{Lab: Unprotected Admin Functionality with Unpredictable URL}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Inspect the lab's home page source using Burp Suite or browser developer tools.
+    \item Find the JavaScript code that discloses the admin panel URL.
+    \item Navigate to the discovered URL and delete the user \texttt{carlos}.
+\end{enumerate}
+
+\section{Lab: User Role Controlled by Request Parameter}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Navigate to \texttt{/admin} and confirm that access is denied.
+    \item Log in using the credentials \texttt{wiener:peter}.
+    \item In Burp Proxy, enable interception for HTTP responses and submit the login form.
+    \item Inspect the response and locate the cookie \texttt{Admin=false}.
+    \item Change the cookie value to \texttt{Admin=true} and forward the response.
+    \item Navigate to \texttt{/admin} and delete the user \texttt{carlos}.
+\end{enumerate}
+
+\section{Lab: User Role Can Be Modified in User Profile}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Log in using \texttt{wiener:peter} and navigate to your account page.
+    \item Use the feature to update your account email address.
+    \item Inspect the response and locate your \texttt{roleid}.
+    \item Send the email update request to Burp Repeater and add the following property to the JSON request body:
+
+          \begin{lstlisting}
+"roleid": 2
+\end{lstlisting}
+
+    \item Resend the request and verify that your \texttt{roleid} is now \texttt{2}.
+    \item Navigate to \texttt{/admin} and delete the user \texttt{carlos}.
+\end{enumerate}
+
+\newpage
+\section{Lab: Method-Based Access Control Can Be Circumvented}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Log in using the administrator credentials \texttt{administrator:admin}.
+    \item Open the admin panel, initiate the promotion of \texttt{carlos}, and send the resulting request to Burp Repeater.
+    \item Open a private browser window and log in as \texttt{wiener:peter}.
+    \item Replace the session cookie in Repeater with the non-admin user's session cookie and resend the request. Observe the \texttt{Unauthorized} response.
+    \item Change the HTTP method from \texttt{POST} to \texttt{POSTX} and resend the request. Observe the different error response.
+    \item Use Burp Repeater's \textit{Change request method} option to convert the request to \texttt{GET}.
+    \item Change the username parameter to \texttt{wiener} and resend the request to promote your account to administrator.
+\end{enumerate}
+
+\section{Lab: User ID Controlled by Request Parameter}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Log in using \texttt{wiener:peter} and navigate to your account page.
+    \item Observe that the URL contains your username in the \texttt{id} parameter.
+    \item Send the account request to Burp Repeater.
+    \item Change the \texttt{id} parameter to \texttt{carlos} and resend the request.
+    \item Retrieve Carlos's API key and submit it to solve the lab.
+\end{enumerate}
+
+\section{Lab: User ID Controlled by Request Parameter with Unpredictable User IDs}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Find a blog post authored by \texttt{carlos}.
+    \item Click his username and record the GUID from the URL.
+    \item Log in using \texttt{wiener:peter} and navigate to your account page.
+    \item Send the account request to Burp Repeater and replace the \texttt{id} parameter with Carlos's GUID.
+    \item Retrieve Carlos's API key and submit it to solve the lab.
+\end{enumerate}
+
+\section{Lab: User ID Controlled by Request Parameter with Data Leakage in Redirect}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Log in using \texttt{wiener:peter} and navigate to your account page.
+    \item Send the account request to Burp Repeater.
+    \item Change the \texttt{id} parameter to \texttt{carlos} and resend the request.
+    \item Inspect the response body despite the redirect to the home page, and retrieve Carlos's API key.
+    \item Submit the API key to solve the lab.
+\end{enumerate}
+
+\newpage
+\section{Lab: User ID Controlled by Request Parameter with Password Disclosure}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Log in using \texttt{wiener:peter} and navigate to your account page.
+    \item Change the \texttt{id} parameter in the URL to \texttt{administrator}.
+    \item Inspect the response in Burp Suite and retrieve the administrator's password.
+    \item Log in using the administrator's credentials and delete the user \texttt{carlos}.
+\end{enumerate}
+
+\section{Lab: Insecure Direct Object References}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Open the \texttt{Live chat} tab, send a message, and select \texttt{View transcript}.
+    \item Inspect the transcript URL and identify the incrementing filename pattern.
+    \item Change the filename to \texttt{1.txt} and inspect the transcript to find a password belonging to \texttt{carlos}.
+    \item Log in using Carlos's credentials to solve the lab.
+\end{enumerate}
+
+\section{Lab: Multi-Step Process with No Access Control on One Step}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Log in using \texttt{administrator:admin} and navigate to the admin panel.
+    \item Promote \texttt{carlos} and send the confirmation request to Burp Repeater.
+    \item Open a private browser window and log in using \texttt{wiener:peter}.
+    \item Replace the session cookie in Repeater with the non-admin user's session cookie and change the username parameter to \texttt{wiener}.
+    \item Resend the request to promote your own account to administrator.
+\end{enumerate}
+
+\section{Lab: Referer-Based Access Control}
+\vspace{0.3cm}
+
+\begin{enumerate}
+    \item Log in using \texttt{administrator:admin} and navigate to the admin panel.
+    \item Promote \texttt{carlos} and send the HTTP request to Burp Repeater.
+    \item Open a private browser window and log in using \texttt{wiener:peter}.
+    \item Visit \texttt{/admin-roles?username=carlos\&action=upgrade} and observe that the request is rejected because the \texttt{Referer} header is missing.
+    \item Replace the session cookie in Repeater with the non-admin user's session cookie, change the username parameter to \texttt{wiener}, and add a \texttt{Referer} header pointing to \texttt{/admin}.
+    \item Resend the request to promote your own account to administrator.
+\end{enumerate}
+
+\end{document}

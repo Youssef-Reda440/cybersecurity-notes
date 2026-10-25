@@ -1,0 +1,1312 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage[protrusion=true,expansion=false]{microtype}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Vulnerability Notes}
+\newcommand{\VulnerabilityTitle}{Access control vulnerabilities}
+\newcommand{\SourceName}{PortSwigger Web Security Academy}
+\newcommand{\SourceURL}{https://portswigger.net/web-security/access-control}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+
+\lstdefinelanguage{HTTP}{
+    morekeywords={GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS,Host,Cookie,Content-Type,Referer,Location,Authorization,Accept,User-Agent,Origin,Set-Cookie},
+    sensitive=false,
+    morestring=[b]",
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}{\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}{\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{Broken Access Control}}
+\fancyfoot[C]{\thepage}
+
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{2em}
+
+% Document
+
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+    \thispagestyle{empty}
+
+    \centering
+
+    \vspace*{1.8cm}
+
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+    \vspace{1.2cm}
+
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+    \vspace{0.8cm}
+
+    {\large Concepts, Attack Techniques, Detection, and Defenses\par}
+
+    \vfill
+
+    \begin{flushleft}
+        \textbf{Reference}\\
+        \href{\SourceURL}{\SourceName}
+
+        \vspace{0.6cm}
+
+        \textbf{Prepared by}\\
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+\hypersetup{pageanchor=true}
+
+% Contents
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Notes
+% ----------------------------------
+
+\section{Introduction to Access Control}
+
+\subsection{What is Access Control?}
+
+\textbf{Access control} is the mechanism that determines whether a user is authorized to perform a specific action on a particular resource.
+In web applications, access control enforces permissions based on users, roles, resource ownership, and application rules.
+
+Common examples include:
+\begin{itemize}
+    \item \textbf{Users:} Normal users, managers, and administrators.
+    \item \textbf{Resources:} Profiles, orders, reports, and administrative panels.
+    \item \textbf{Actions:} Read, create, edit, and delete.
+\end{itemize}
+
+For example, a normal user may be allowed to view and edit their own profile but not access another user's data or delete other users. An administrator may have broader permissions.
+The purpose of access control is to enforce these restrictions on the server side.
+
+\subsection{Authentication, Session Management, and Access Control}
+
+These three concepts are closely related but serve different purposes.
+
+\subsubsection{Authentication}
+
+Authentication verifies the identity of a user.
+For example, when a user submits credentials through a login request, the server validates them to determine which user is attempting to authenticate.
+
+\begin{lstlisting}[language=HTTP]
+POST /login HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+username=ali&password=********
+\end{lstlisting}
+
+Authentication answers:
+\begin{quote}
+    Who are you?
+\end{quote}
+
+\subsubsection{Session Management}
+
+After authentication, the application needs to associate subsequent HTTP requests with the authenticated user.
+
+For example, the server may issue a session cookie:
+\begin{lstlisting}[language=HTTP]
+Set-Cookie: session=abc123
+\end{lstlisting}
+
+The browser includes the cookie in subsequent requests, allowing the server to identify the associated session and user.
+
+Session management answers:
+\begin{quote}
+    Which authenticated user does this request belong to?
+\end{quote}
+
+\subsubsection{Authorization and Access Control}
+
+Once the application identifies the user, it must determine whether that user is permitted to perform the requested action.
+For example, an authenticated normal user requesting an administrative resource should be denied access if they lack the required permissions.
+
+\begin{lstlisting}[language=HTTP]
+GET /admin/users HTTP/1.1
+Cookie: session=abc123
+\end{lstlisting}
+
+The server must evaluate the user's permissions before granting access.
+
+Authorization answers:
+\begin{quote}
+    What is this user allowed to do?
+\end{quote}
+
+Access control refers to the rules and enforcement mechanisms used to restrict access to resources and functionality according to those permissions.
+
+\subsection{The Complete Request Flow}
+
+A simplified request flow is:
+\begin{enumerate}
+    \item \textbf{Authentication:} Verify the user's identity.
+    \item \textbf{Session Management:} Associate the request with the authenticated user.
+    \item \textbf{Authorization:} Determine whether the user can perform the requested action on the resource.
+    \item \textbf{Enforcement:} Allow or deny the request based on the authorization decision.
+\end{enumerate}
+
+Successful authentication does not imply authorization. A user can be logged in successfully but still be forbidden from accessing administrative functionality or another user's resources.
+
+\subsection{Broken Access Control}
+
+\textbf{Broken Access Control} occurs when an application fails to properly enforce authorization restrictions, allowing users to access resources or perform actions beyond their intended permissions.
+For example, an application may authenticate a normal user correctly but fail to verify whether that user is authorized to delete another user's account.
+
+\begin{lstlisting}[language=HTTP]
+DELETE /users/50 HTTP/1.1
+Cookie: session=abc123
+\end{lstlisting}
+
+If the server processes this request without checking the user's permissions, the application has a Broken Access Control vulnerability.
+The underlying issue is not necessarily authentication or session management. The application may correctly identify the user while failing to enforce what that user is allowed to do.
+
+\subsection{Why Access Control Is Difficult}
+
+Access control becomes complex as applications introduce different roles, resources, permissions, ownership rules, workflows, and business requirements.
+
+Authorization decisions may depend on several factors:
+\begin{itemize}
+    \item The authenticated user's identity and role.
+    \item The specific resource being accessed and its owner.
+    \item The requested action and HTTP method.
+    \item The application's current state and business rules.
+    \item The permissions required by a particular endpoint or API.
+\end{itemize}
+
+Permissions may differ even for resources owned by the same user. For example, a user might be allowed to view an order but not cancel it or request a refund.
+Access control rules must therefore be enforced consistently across all relevant endpoints and operations. Protecting one interface does not guarantee that equivalent functionality exposed through another endpoint is also protected.
+
+\subsection{Security Impact}
+
+Broken Access Control can allow attackers to perform unauthorized actions, including:
+\begin{itemize}
+    \item Accessing sensitive information.
+    \item Viewing or modifying other users' data.
+    \item Accessing administrative functionality.
+    \item Changing application data or business-critical settings.
+    \item Deleting resources or performing other privileged operations.
+\end{itemize}
+
+The severity depends on the permissions bypassed, the resources affected, and the actions the attacker can perform.
+
+\newpage
+\section{Access Control Security Models}
+
+\subsection{Programmatic Access Control}
+
+\subsubsection{Definition}
+
+\textbf{Programmatic Access Control} enforces access control rules through application logic that checks a \textbf{privilege matrix} stored in a database or a similar system.
+The application evaluates the matrix to determine whether a user is authorized to perform a specific action on a resource.
+
+\subsubsection{How It Works}
+
+\begin{enumerate}
+    \item A user sends an HTTP request.
+    \item The application identifies the requested resource and action.
+    \item The application checks the privilege matrix.
+    \item The request is allowed or denied based on the user's permissions.
+\end{enumerate}
+
+\subsubsection{Privilege Matrix}
+
+A privilege matrix defines which subjects can perform which actions on specific resources. Permissions may be associated with individual users, groups, roles, resources, or workflows.
+
+\begin{lstlisting}
+
+Subject    Resource    Action
+
+Alice      Orders      Read
+
+Alice      Orders      Update
+
+Bob        Orders      Read
+
+Admin      Users       Delete
+\end{lstlisting}
+
+\subsubsection{Key Characteristics}
+
+\begin{itemize}
+    \item Permission checks are performed by application logic.
+    \item Permissions can be highly granular.
+    \item The model can support complex combinations of users, roles, groups, resources, and workflows.
+    \item Permission data can be stored in a database or a similar system.
+\end{itemize}
+
+\subsubsection{Example}
+
+Suppose Alice has permission to read Order \#100 but does not have permission to delete it.
+
+\begin{lstlisting}
+Alice -> Order #100 -> READ   -> Allowed
+Alice -> Order #100 -> DELETE -> Denied
+\end{lstlisting}
+
+\subsubsection{Key Point}
+
+Programmatic Access Control relies on application logic to evaluate a privilege matrix and determine whether an action is permitted.
+
+\subsection{Discretionary Access Control (DAC)}
+
+\subsubsection{Definition}
+
+\textbf{Discretionary Access Control (DAC)} controls access based on individual users or named groups. Its defining characteristic is the \textbf{resource owner's ability to assign or delegate permissions} to other users.
+
+\subsubsection{How It Works}
+
+The resource owner determines which users can access the resource and what actions they can perform.
+
+\begin{enumerate}
+    \item A resource has an owner.
+    \item The owner assigns or delegates permissions.
+    \item Other users receive the specified access rights.
+\end{enumerate}
+
+\subsubsection{Example}
+
+Suppose Youssef owns the file \texttt{project.pdf}. He can assign the following permissions:
+\begin{lstlisting}
+Ahmed -> Read
+Ali   -> Edit
+Omar  -> No Access
+\end{lstlisting}
+
+\subsubsection{Key Characteristics}
+
+\begin{itemize}
+    \item Access can be controlled for individual users or groups.
+    \item Resource owners can assign or delegate permissions.
+    \item Permissions can be defined for specific resources and actions.
+    \item Access rights can be highly granular.
+\end{itemize}
+
+\subsubsection{Advantages and Disadvantages}
+
+\textbf{Advantage:} DAC is flexible because resource owners can determine who has access to their resources.
+\textbf{Disadvantage:} Managing permissions can become complex when many users and resources have different access requirements.
+
+\subsubsection{Key Point}
+
+DAC allows resource owners to assign or delegate access permissions, subject to any applicable system restrictions.
+
+\subsection{Mandatory Access Control (MAC)}
+
+\subsubsection{Definition}
+
+\textbf{Mandatory Access Control (MAC)} is a centrally controlled access control model in which access decisions are determined by a central security policy.
+Unlike DAC, users and resource owners cannot independently modify or delegate permissions in a way that overrides the central policy.
+
+\subsubsection{How It Works}
+
+\begin{enumerate}
+    \item A central authority defines the security policy.
+    \item Users and resources are assigned appropriate security classifications or levels.
+    \item The system evaluates access requests against the policy.
+    \item Access is allowed or denied according to the policy.
+\end{enumerate}
+
+\subsubsection{Common Example: Military Systems}
+
+Military systems may use security clearance levels such as:
+\begin{itemize}
+    \item Public
+    \item Confidential
+    \item Secret
+    \item Top Secret
+\end{itemize}
+
+Documents may also have corresponding security classifications.
+
+\begin{lstlisting}
+Document A -> Confidential
+Document B -> Secret
+Document C -> Top Secret
+\end{lstlisting}
+
+A user can access a document only when the centralized security policy permits it.
+
+\subsubsection{Example}
+
+Ahmed has Confidential clearance but attempts to access a Secret document.
+
+\begin{lstlisting}
+Ahmed -> Confidential Clearance
+Ahmed -> Access Secret Document
+      -> Denied
+\end{lstlisting}
+
+Even if Ahmed owns the document, he cannot override the central security policy or grant himself additional permissions.
+
+\subsubsection{Key Characteristics}
+
+\begin{itemize}
+    \item Access decisions are controlled by a central security policy.
+    \item Users cannot independently modify their access rights.
+    \item Resource owners cannot delegate permissions in violation of the policy.
+    \item MAC is commonly associated with military and other high-security environments.
+\end{itemize}
+
+\subsubsection{Key Point}
+
+MAC enforces centrally defined security restrictions that users and resource owners cannot override.
+
+\subsection{Role-Based Access Control (RBAC)}
+
+\subsubsection{Definition}
+
+\textbf{Role-Based Access Control (RBAC)} assigns permissions to roles, and users are assigned to one or more roles.
+Instead of assigning permissions individually to every user, RBAC associates users with roles that already have defined permissions.
+\[
+    \text{User} \rightarrow \text{Role} \rightarrow \text{Permissions}
+\]
+
+\subsubsection{How It Works}
+
+\begin{enumerate}
+    \item Define roles according to organizational responsibilities.
+    \item Assign permissions to each role.
+    \item Assign users to the appropriate roles.
+    \item The application determines the user's effective permissions through their assigned roles.
+\end{enumerate}
+
+\subsubsection{Example}
+
+Consider an application with the following roles and permissions:
+\begin{itemize}
+    \item \textbf{Admin:} Create users, delete users, edit users, and view reports.
+    \item \textbf{Manager:} Approve requests and view reports.
+    \item \textbf{Employee:} View their own profile and create requests.
+    \item \textbf{Auditor:} Permissions defined according to auditing responsibilities.
+\end{itemize}
+
+Users are assigned to these roles as follows:
+\begin{lstlisting}
+Youssef -> Employee
+Ahmed   -> Manager
+Ali     -> Admin
+\end{lstlisting}
+
+\subsubsection{Real-World Example}
+
+A company may define a \texttt{Purchase Clerk} role with permissions to:
+\begin{itemize}
+    \item View the purchase ledger.
+    \item Create purchase orders.
+    \item Update purchase orders.
+\end{itemize}
+
+Multiple employees can be assigned to this role and receive its permissions.
+When an employee joins the company, assigning the role grants the corresponding permissions. When the employee leaves, removing the role revokes the permissions obtained through that role, assuming no other assignments grant the same access.
+
+\subsubsection{Advantages and Disadvantages}
+
+\textbf{Advantages:}
+\begin{itemize}
+    \item Easier to manage than assigning permissions to every user individually.
+    \item Suitable for complex applications and organizations.
+    \item Simplifies onboarding and offboarding.
+    \item Provides effective permission management when roles are designed appropriately.
+\end{itemize}
+
+\textbf{Disadvantage:} Creating too many roles can increase complexity and make the system difficult to manage.
+The objective is to balance sufficient permission granularity with a manageable number of roles.
+
+\subsubsection{Key Point}
+
+RBAC assigns permissions to roles and assigns users to those roles, simplifying the administration of access rights.
+
+\subsection{Comparison of Access Control Models}
+
+\begin{center}
+    \begin{tabular}{|l|p{5.2cm}|p{4.1cm}|}
+        \hline
+        \textbf{Model} & \textbf{Main Idea}                              & \textbf{Access Control}        \\\\
+        \hline
+        Programmatic   & The application checks a privilege matrix.      & Application logic              \\\\
+        \hline
+        DAC            & Resource owners assign or delegate permissions. & Resource owner                 \\\\
+        \hline
+        MAC            & A central security policy determines access.    & Central authority and policy   \\\\
+        \hline
+        RBAC           & Permissions are assigned to roles.              & Role and policy administrators \\\\
+        \hline
+    \end{tabular}
+\end{center}
+
+\subsection{Important Differences}
+
+\subsubsection{DAC vs. MAC}
+
+\begin{itemize}
+    \item \textbf{DAC:} Resource owners can assign or delegate permissions within applicable restrictions.
+    \item \textbf{MAC:} Resource owners cannot override the centrally enforced security policy.
+\end{itemize}
+
+\subsubsection{Programmatic Access Control vs. RBAC}
+
+\begin{itemize}
+    \item \textbf{Programmatic Access Control:} Describes enforcing permissions through application logic that checks a privilege matrix.
+    \item \textbf{RBAC:} Defines how permissions are organized and assigned through roles.
+\end{itemize}
+
+These concepts are not necessarily mutually exclusive. An application can implement RBAC programmatically by checking a user's roles and their associated permissions.
+
+\subsection{Quick Memory Reference}
+
+\begin{itemize}
+    \item \textbf{Programmatic:} Application logic checks permissions.
+    \item \textbf{DAC:} Resource owner assigns permissions.
+    \item \textbf{MAC:} Central security policy controls access.
+    \item \textbf{RBAC:} Users receive permissions through roles.
+\end{itemize}
+
+\newpage
+\section{Types of Access Controls}
+
+\subsection{Vertical Access Controls}
+
+\textbf{Vertical access controls} restrict access to functionality based on a user's privilege level or role. Different users may be permitted to perform different actions depending on their assigned permissions.
+For example, a normal user may view and edit their own profile, while an administrator may also manage users, modify security settings, and access administrative functionality.
+A vertical access control vulnerability occurs when a user can access functionality intended for a higher-privileged role.
+
+\subsubsection{Example}
+
+Consider an administrative endpoint:
+\begin{lstlisting}[language=HTTP]
+GET /admin/users HTTP/1.1
+\end{lstlisting}
+
+A normal user should be denied access if they lack the required permissions. If the server instead returns the administrative functionality, the user has bypassed vertical access controls.
+
+\subsubsection{Common Examples}
+
+\begin{itemize}
+    \item Accessing an administrative panel as a normal user.
+    \item Invoking administrative API endpoints without sufficient privileges.
+    \item Deleting users through functionality restricted to administrators.
+    \item Modifying security settings without the required permissions.
+    \item Accessing functionality intended only for managers or staff.
+\end{itemize}
+
+\textbf{Key concept:} Vertical access control concerns differences in privilege levels. Moving from a lower privilege level to a higher one is known as \textbf{vertical privilege escalation}.
+
+\subsection{Horizontal Access Controls}
+
+\textbf{Horizontal access controls} restrict access to resources based on resource ownership or the specific users authorized to access them.
+Users may have the same privilege level and access the same types of functionality, but each user should only be able to access resources they are authorized to use.
+
+\subsubsection{Example}
+
+Suppose two users have separate accounts:
+\begin{itemize}
+    \item Ahmed owns account \texttt{100} and its associated transactions.
+    \item Mohamed owns account \texttt{200} and its associated transactions.
+\end{itemize}
+
+Ahmed should be able to access his own account but not Mohamed's account.
+
+The application uses the following request:
+\begin{lstlisting}[language=HTTP]
+GET /account?id=100 HTTP/1.1
+\end{lstlisting}
+
+If Ahmed changes the identifier:
+\begin{lstlisting}[language=HTTP]
+GET /account?id=200 HTTP/1.1
+\end{lstlisting}
+
+and receives Mohamed's account information without proper authorization, the application has a horizontal access control vulnerability.
+
+\subsubsection{Common Examples}
+
+\begin{itemize}
+    \item Viewing another user's private profile.
+    \item Accessing another user's orders or transactions.
+    \item Reading private messages belonging to another user.
+    \item Downloading another user's files.
+    \item Modifying another user's account information.
+\end{itemize}
+
+\subsubsection{Relationship with IDOR}
+
+Horizontal access control vulnerabilities are commonly associated with \textbf{Insecure Direct Object References (IDOR)}.
+
+For example:
+\begin{lstlisting}[language=HTTP]
+GET /api/users/123/profile HTTP/1.1
+\end{lstlisting}
+
+If changing the user identifier from \texttt{123} to \texttt{124} allows unauthorized access to the other user's private information, this may indicate an IDOR vulnerability.
+IDOR is a common mechanism behind horizontal access control failures, although not every horizontal access control vulnerability is necessarily an IDOR.
+\textbf{Key concept:} Horizontal access control concerns access to resources belonging to different users at the same privilege level. The attacker does not necessarily gain a higher role.
+
+\subsection{Context-Dependent Access Controls}
+
+\textbf{Context-dependent access controls} restrict actions based on the application's current state, workflow, or the completion of required steps.
+A user may generally be permitted to perform an action, but the application must ensure that the action is allowed at the current stage of the workflow.
+
+\subsubsection{Example: Shopping Cart}
+
+Consider a checkout workflow:
+\begin{enumerate}
+    \item Add items to the cart.
+    \item Review the cart.
+    \item Complete payment.
+    \item Finalize the order.
+\end{enumerate}
+
+Modifying the cart may be permitted before payment, but the application should enforce the appropriate restrictions once the transaction has been completed.
+If a user can bypass these restrictions and modify a completed order, the application may have a context-dependent access control vulnerability.
+
+\subsubsection{Example: Password Reset}
+
+A secure password-reset workflow may require the following steps:
+\begin{enumerate}
+    \item Request a password reset.
+    \item Receive a one-time password (OTP).
+    \item Verify the OTP.
+    \item Change the password.
+\end{enumerate}
+
+The application must not allow the password to be changed before the required verification has been completed.
+If an attacker skips the verification step and directly accesses the password-change functionality, this may constitute a context-dependent access control bypass.
+
+\subsubsection{Common Contextual Restrictions}
+
+Access decisions may depend on:
+\begin{itemize}
+    \item Previous user actions.
+    \item Current workflow or transaction state.
+    \item Payment or order completion status.
+    \item Identity or security verification status.
+    \item Required approvals.
+    \item Whether a process has already been completed.
+\end{itemize}
+
+\textbf{Key concept:} Context-dependent access control determines whether an action is permitted in the application's current state, rather than relying solely on the user's role or resource ownership.
+
+\subsection{Comparison of Access Control Types}
+
+\begin{table}[htbp]
+    \centering
+    \begin{tabular}{|p{0.20\textwidth}|p{0.36\textwidth}|p{0.34\textwidth}|}
+        \hline
+        \textbf{Type}     & \textbf{Main Question}                                    & \textbf{Example}                          \\\\
+        \hline
+        Vertical          & Does the user have sufficient privileges?                 & A normal user accesses an admin endpoint. \\\\
+        \hline
+        Horizontal        & Is the user authorized to access this specific resource?  & Ahmed accesses Mohamed's account.         \\\\
+        \hline
+        Context-dependent & Is the action permitted in the current application state? & A user modifies an order after payment.   \\\\
+        \hline
+    \end{tabular}
+
+    \caption{Comparison of access control types}
+    \label{tab:access-control-types}
+\end{table}
+
+\subsection{Access Control Testing Approach}
+
+When testing for Broken Access Control, evaluate the application from three perspectives.
+
+\subsubsection{Vertical Access Control}
+
+Determine whether a low-privileged user can access functionality restricted to a higher-privileged user.
+
+\begin{lstlisting}
+Normal User -> Restricted Admin Endpoint
+\end{lstlisting}
+
+\subsubsection{Horizontal Access Control}
+
+Determine whether one user can access or modify resources belonging to another user without authorization.
+
+\begin{lstlisting}
+User A -> User B's Resource
+\end{lstlisting}
+
+\subsubsection{Context-Dependent Access Control}
+
+Determine whether a user can skip required workflow steps or perform an action in an invalid application state.
+
+\begin{lstlisting}
+Skip Required Step
+       |
+       v
+Perform Restricted Action
+\end{lstlisting}
+
+Testing should verify the actual authorization failure and its impact, rather than treating a changed URL, identifier, or workflow step alone as proof of a vulnerability.
+
+\newpage
+\section{Vertical Privilege Escalation: Unprotected Functionality}
+
+\subsection{Definition}
+
+\textbf{Vertical Privilege Escalation} occurs when a low-privileged user gains access to functionality or resources intended for users with higher privileges.
+A common cause is missing or improperly enforced server-side authorization.
+
+\subsection{Unprotected Functionality}
+
+An application may expose administrative endpoints without verifying the requesting user's privileges.
+For example, an application may hide the admin panel link from normal users while leaving the endpoint accessible:
+
+\begin{lstlisting}[language=HTTP]
+GET /admin HTTP/1.1
+Host: insecure-website.com
+\end{lstlisting}
+
+If the server does not enforce authorization, a normal user may access the administrative functionality directly. A properly protected endpoint must verify the user's privileges and deny unauthorized requests, typically with \texttt{403 Forbidden}.
+
+\subsection{Discovering Hidden Endpoints}
+
+Administrative functionality may be exposed through predictable paths such as:
+\begin{lstlisting}
+/admin
+/administrator
+/admin-panel
+/manage
+/dashboard
+\end{lstlisting}
+
+Testers can use content discovery and wordlists to identify endpoints that are not linked from the user interface.
+
+Other discovery sources include:
+\begin{itemize}
+    \item \texttt{/robots.txt}, which may disclose paths through entries such as \texttt{Disallow: /admin}.
+    \item HTML source code and client-side JavaScript.
+    \item Application responses and leaked links.
+\end{itemize}
+
+The \texttt{robots.txt} file provides instructions to compliant crawlers; it does not restrict user access.
+\textbf{Important distinction:} Content discovery identifies whether an endpoint exists, while authorization testing determines whether the current user is permitted to access it. A hidden endpoint is not itself a vulnerability.
+
+\subsection{Security by Obscurity}
+
+Using an unpredictable URL, such as \texttt{/administrator-panel-yb556}, is not a substitute for access control. The path may still be discovered through JavaScript, HTML, application responses, or content discovery.
+\[
+    \text{Hidden URL} \neq \text{Authorization}
+\]
+The server must enforce permissions regardless of whether the endpoint's URL is known or difficult to guess.
+
+\subsection{Client-Side Hiding vs. Server-Side Authorization}
+
+Client-side code may conditionally display an administrative link:
+\begin{lstlisting}[language=Java]
+if (isAdmin) {
+    // Display the admin panel link
+}
+\end{lstlisting}
+
+However, hiding the link only changes the interface. The URL may remain visible in the delivered JavaScript, and users can send HTTP requests directly without using the interface.
+Therefore, authorization must be enforced server-side for every protected request.
+
+\subsection{Testing Workflow}
+
+\begin{enumerate}
+    \item Log in as a low-privileged user.
+    \item Identify potentially sensitive endpoints through content discovery and client-side inspection.
+    \item Request the endpoints directly.
+    \item Examine the responses and attempt to access the protected functionality.
+    \item Confirm whether the server correctly denies unauthorized access.
+\end{enumerate}
+
+A successful response alone does not necessarily prove a vulnerability. Confirm that the low-privileged user can access or perform an action that should be restricted to higher-privileged users.
+
+\subsection{Parameter-Based Access Control}
+
+\subsubsection{Concept}
+
+\textbf{Parameter-based access control} is vulnerable when an application makes authorization decisions using client-controlled values, allowing users to manipulate their privileges.
+
+Such values may appear in:
+\begin{itemize}
+    \item Hidden HTML fields.
+    \item Cookies.
+    \item Query string parameters.
+    \item Request body parameters or HTTP headers.
+\end{itemize}
+
+\subsubsection{Common Examples}
+
+\textbf{Hidden fields:}
+\begin{lstlisting}[language=HTML]
+<input type="hidden" name="admin" value="false">
+\end{lstlisting}
+
+A user can modify the field before submitting the request:
+\begin{lstlisting}[language=HTML]
+<input type="hidden" name="admin" value="true">
+\end{lstlisting}
+
+\textbf{Cookies:}
+\begin{lstlisting}[language=HTTP]
+Cookie: admin=false
+\end{lstlisting}
+
+A vulnerable application might accept a modified value:
+\begin{lstlisting}[language=HTTP]
+Cookie: admin=true
+\end{lstlisting}
+
+\textbf{Query parameters:}
+\begin{lstlisting}[language=HTTP]
+GET /home?role=0 HTTP/1.1
+\end{lstlisting}
+
+If the application maps \texttt{role=0} to a normal user and \texttt{role=1} to an administrator, modifying the parameter may bypass authorization.
+
+\subsubsection{Root Cause}
+
+The vulnerability occurs when the server trusts user-controlled input to determine authorization.
+\[
+    \text{Client-Controlled Value}
+    \rightarrow
+    \text{Authorization Decision}
+\]
+Hidden fields and cookies are not inherently insecure; the problem is relying on modifiable client-side values as authoritative proof of privileges.
+
+\subsubsection{Secure Implementation}
+
+The server should identify the authenticated user through a trusted session and determine their permissions using trusted server-side data.
+
+\begin{enumerate}
+    \item Authenticate the user.
+    \item Identify the account associated with the session.
+    \item Retrieve the user's actual roles and permissions.
+    \item Check authorization for the requested action and resource.
+    \item Allow or deny the request accordingly.
+\end{enumerate}
+
+Client-provided parameters may specify the requested action, but they must not independently grant privileges.
+
+\subsubsection{Testing Workflow}
+
+\begin{enumerate}
+    \item Log in as a low-privileged user.
+    \item Inspect requests for privilege-related values, such as \texttt{admin}, \texttt{isAdmin}, \texttt{role}, or \texttt{privilege}.
+    \item Test whether these values can be modified in cookies, parameters, hidden fields, or request bodies.
+    \item Observe whether the changes grant access to restricted functionality.
+\end{enumerate}
+
+If manipulating a parameter allows a low-privileged user to perform an action reserved for administrators, the application may be vulnerable to vertical privilege escalation.
+
+\subsection{Platform Misconfiguration}
+
+\subsubsection{Concept}
+
+Some applications enforce access control at the platform layer, such as a front-end server or reverse proxy, using rules based on URL paths, HTTP methods, and user groups.
+For example, a platform rule may deny managers access to a specific administrative endpoint. If the platform and the application interpret the same request differently, these restrictions may be bypassed, resulting in \textbf{vertical privilege escalation}.
+Two common techniques are URL override headers and HTTP method manipulation.
+
+\subsubsection{URL Override Headers}
+
+Some frameworks support headers that influence how the application interprets the requested URL, including:
+\begin{lstlisting}[language=HTTP]
+X-Original-URL: /admin/deleteUser
+X-Rewrite-URL: /admin/deleteUser
+\end{lstlisting}
+
+Suppose the platform blocks requests to \texttt{/admin/deleteUser}. A tester can check whether the following request is interpreted differently by the platform and the application:
+\begin{lstlisting}[language=HTTP]
+POST / HTTP/1.1
+Host: example.com
+X-Original-URL: /admin/deleteUser
+\end{lstlisting}
+
+If the platform checks the original path (\texttt{/}) while the application processes the overridden path (\texttt{/admin/deleteUser}), the request may bypass the intended restriction.
+The vulnerability depends on an actual authorization bypass; support for these headers alone is not sufficient to establish one.
+
+\subsubsection{HTTP Method-Based Bypass}
+
+Access control rules may restrict a sensitive action for a particular HTTP method without protecting equivalent requests using other supported methods.
+For example, a platform might block:
+\begin{lstlisting}[language=HTTP]
+POST /admin/deleteUser?id=123 HTTP/1.1
+\end{lstlisting}
+
+A tester can check whether the application also performs the same action through another method:
+\begin{lstlisting}[language=HTTP]
+GET /admin/deleteUser?id=123 HTTP/1.1
+\end{lstlisting}
+
+If the alternative request performs the restricted action without proper authorization, the access control can be bypassed.
+
+\subsubsection{Testing Approach}
+
+When testing restricted functionality:
+\begin{enumerate}
+    \item Identify an endpoint that is correctly blocked for a low-privileged user.
+    \item Test URL override headers such as \texttt{X-Original-URL} and \texttt{X-Rewrite-URL}.
+    \item Test alternative HTTP methods supported by the application.
+    \item Compare responses and verify whether the sensitive action actually succeeds.
+\end{enumerate}
+
+\subsubsection{Security Principle}
+
+Authorization must be enforced consistently across the application stack. The application must validate the user's permissions for the actual resource and action being requested, regardless of URL representation or HTTP method.
+
+\subsection{URL-Matching Discrepancies}
+
+\subsubsection{Concept}
+
+URL-matching discrepancies occur when the access control layer and the application router interpret the same URL differently. The access control layer may allow a request that the application maps to restricted functionality, resulting in an access control bypass and potentially vertical privilege escalation.
+
+\subsubsection{Common Types}
+
+\textbf{1. Case sensitivity}
+An application may treat paths as case-insensitive, while the access control mechanism uses case-sensitive matching.
+
+\begin{lstlisting}[language=HTTP]
+GET /ADMIN/DELETEUSER HTTP/1.1
+\end{lstlisting}
+
+The application might map this path to \texttt{/admin/deleteUser}, while the access control layer fails to recognize it as a protected endpoint.
+\textbf{2. Suffix pattern matching}
+Some frameworks may map paths containing file extensions to the same endpoint as the original path.
+
+For example, in configurations that support suffix pattern matching:
+\begin{lstlisting}
+/admin/deleteUser.anything
+\end{lstlisting}
+
+may be routed to:
+\begin{lstlisting}
+/admin/deleteUser
+\end{lstlisting}
+
+In Spring MVC, suffix pattern matching was enabled by default in versions before Spring 5.3. Actual behavior depends on the framework version and configuration.
+\textbf{3. Trailing slash}
+
+The access control layer and application router may treat these paths differently:
+\begin{lstlisting}
+/admin/deleteUser
+/admin/deleteUser/
+\end{lstlisting}
+
+If the application maps both paths to the same restricted functionality but the access control layer protects only one, the alternative path may bypass the restriction.
+
+\subsubsection{URL Normalization}
+
+Web servers, access control mechanisms, and application routers may normalize URLs differently. Relevant differences include:
+\begin{itemize}
+    \item Letter case.
+    \item File extensions or suffixes.
+    \item Trailing slashes.
+    \item URL encoding and path normalization.
+\end{itemize}
+
+The underlying weakness is inconsistent interpretation:
+\[
+    \text{Authorization Matching}
+    \neq
+    \text{Application Routing}
+\]
+
+\subsubsection{Testing Methodology}
+
+For a protected endpoint, test alternative URL representations, such as:
+\begin{lstlisting}
+/admin/deleteUser
+/ADMIN/DELETEUSER
+/admin/deleteUser.anything
+/admin/deleteUser/
+\end{lstlisting}
+
+Determine whether:
+\begin{enumerate}
+    \item The access control layer allows the alternative request.
+    \item The application routes it to the protected endpoint.
+    \item The restricted functionality can actually be accessed or executed.
+\end{enumerate}
+
+A routing difference alone is not a vulnerability. The issue is confirmed when inconsistent URL matching allows an unauthorized user to access or perform a restricted action.
+
+\subsubsection{Security Principle}
+
+The access control mechanism must apply authorization consistently with the application's URL parsing, normalization, and routing behavior. Every representation that resolves to a protected resource must receive the appropriate authorization checks.
+
+\newpage
+\section{Horizontal Privilege Escalation}
+
+\subsection{Definition}
+
+Horizontal privilege escalation occurs when a user accesses resources belonging to another user at the same privilege level. Unlike vertical privilege escalation, the attacker does not gain a higher role but crosses user-level access boundaries.
+
+\begin{itemize}
+    \item \textbf{Vertical:} Normal user accesses administrator functionality.
+    \item \textbf{Horizontal:} User A accesses User B's resources.
+\end{itemize}
+
+For example, if Ahmed can access Mohamed's account data while authenticated as Ahmed, the application has a horizontal access control vulnerability.
+
+\subsection{Typical Access Control Failure}
+
+Consider an application that identifies accounts using a user-controlled parameter:
+\begin{lstlisting}[language=HTTP]
+GET /myaccount?id=123 HTTP/1.1
+Host: insecure-website.com
+\end{lstlisting}
+
+Suppose \texttt{id=123} belongs to Ahmed and \texttt{id=124} belongs to Mohamed. If Ahmed changes the parameter:
+\begin{lstlisting}[language=HTTP]
+GET /myaccount?id=124 HTTP/1.1
+Host: insecure-website.com
+\end{lstlisting}
+
+the application must verify that Ahmed is authorized to access the requested account. If it returns Mohamed's private data without authorization, the application is vulnerable.
+The core issue is a missing or incorrect authorization check between the authenticated user and the requested resource.
+
+\subsection{Horizontal to Vertical Privilege Escalation}
+
+A horizontal access control vulnerability can lead to vertical privilege escalation if the attacker gains access to an account with higher privileges.
+
+\subsubsection{Attack Scenario}
+
+Consider an application that retrieves accounts using a user-controlled parameter:
+\begin{lstlisting}[language=HTTP]
+GET /myaccount?id=123 HTTP/1.1
+\end{lstlisting}
+
+If the attacker can modify the identifier to access another user's account, the impact depends partly on the privileges of the target account.
+
+\begin{lstlisting}
+/myaccount?id=123  -> Attacker's account
+/myaccount?id=456  -> Another user's account
+\end{lstlisting}
+
+If account \texttt{456} belongs to an administrator, the horizontal access control flaw may expose privileged resources or enable further compromise of the administrator's account.
+
+\subsubsection{Potential Impact}
+
+Depending on the application's implementation, accessing a privileged user's account may expose administrative data, credentials, or functionality. However, accessing another user's data does not automatically grant the attacker's session the target user's privileges; additional conditions may be required.
+
+\subsubsection{Testing Approach}
+
+When identifying a horizontal access control vulnerability, determine the target account's role and assess the impact of the unauthorized access.
+Potentially privileged targets include administrators, managers, moderators, and staff members.
+\[
+    \text{Horizontal Access Control Bypass}
+    \rightarrow
+    \text{Privileged Account Exposure}
+    \rightarrow
+    \text{Potential Vertical Escalation}
+\]
+Horizontal privilege escalation describes unauthorized access to another user's resources, while vertical privilege escalation involves gaining access to functionality or permissions above the attacker's own privilege level.
+
+\subsection{Insecure Direct Object References (IDOR)}
+
+\subsubsection{Definition}
+
+Insecure Direct Object Reference (IDOR) is an access control vulnerability that occurs when an application uses a user-controlled reference to access an object without properly verifying whether the current user is authorized to access it.
+\textbf{Core pattern:}
+\[
+    \text{Object Reference}
+    +
+    \text{Missing Authorization}
+    \rightarrow
+    \text{Unauthorized Access}
+\]
+
+\subsubsection{Common Object References}
+
+An object is any resource managed by an application, such as a user account, order, invoice, message, document, image, file, or profile.
+
+Applications may identify these objects using:
+\begin{lstlisting}
+?id=123
+?user_id=456
+?order_id=789
+?file_id=100
+\end{lstlisting}
+
+Other references include UUIDs, GUIDs, filenames, and identifiers embedded in URL paths or API requests.
+
+\subsubsection{Example}
+
+A user accesses their own account:
+\begin{lstlisting}[language=HTTP]
+GET /myaccount?id=123 HTTP/1.1
+\end{lstlisting}
+
+The user modifies the identifier:
+\begin{lstlisting}[language=HTTP]
+GET /myaccount?id=124 HTTP/1.1
+\end{lstlisting}
+
+If the server returns account \texttt{124} without checking whether the authenticated user has permission to access it, the application is vulnerable to IDOR.
+The secure implementation must authorize access to the requested object before returning its data or performing the requested action.
+
+\subsubsection{IDOR and Privilege Escalation}
+
+IDOR is a vulnerability mechanism, whereas privilege escalation describes a possible impact.
+
+\begin{itemize}
+    \item \textbf{Horizontal privilege escalation:} Accessing another user's resources at the same privilege level.
+    \item \textbf{Vertical privilege escalation:} Gaining access to functionality or resources restricted to users with higher privileges.
+\end{itemize}
+
+An IDOR may lead to either outcome, depending on the resource exposed and the permissions involved. Accessing an administrator's resource does not automatically grant administrative privileges.
+
+\subsubsection{Predictable and Unpredictable Identifiers}
+
+Sequential identifiers can make it easier to discover references to other resources:
+\begin{lstlisting}
+/account?id=123
+/account?id=124
+/account?id=125
+\end{lstlisting}
+
+Applications may instead use UUIDs or GUIDs, making identifiers harder to guess. However, an unpredictable identifier does not prevent IDOR if an attacker obtains a valid reference and the server fails to enforce authorization.
+\[
+    \text{Unpredictable Identifier}
+    \neq
+    \text{Authorization}
+\]
+The security boundary must be enforced by server-side authorization checks, not by the secrecy or complexity of object identifiers.
+
+\subsubsection{Testing Methodology}
+
+When testing for IDOR:
+\begin{enumerate}
+    \item Identify requests that reference specific objects.
+    \item Modify the object reference or use another valid identifier discovered within the application.
+    \item Observe whether the server accepts the modified request.
+    \item Verify whether another user's protected data is exposed or an unauthorized action is performed.
+    \item Confirm that the application fails to enforce the required authorization policy.
+\end{enumerate}
+
+Common parameters and references to investigate include:
+\begin{lstlisting}
+id
+user_id
+account_id
+order_id
+message_id
+document_id
+file_id
+\end{lstlisting}
+
+Also inspect identifiers in URL paths, API requests, and other application features.
+\textbf{Important:} A user-controlled identifier alone is not a vulnerability. IDOR exists when insufficient authorization allows access to an object or operation the user is not permitted to access.
+
+\subsection{IDOR Examples}
+
+\subsubsection{Direct Reference to Database Objects}
+
+An IDOR can occur when an application uses a user-controlled parameter to retrieve a database record without verifying whether the authenticated user is authorized to access it.
+
+For example:
+\begin{lstlisting}[language=HTTP]
+GET /customer_account?customer_number=132355 HTTP/1.1
+\end{lstlisting}
+
+The application may use the parameter to retrieve a customer record. If changing the reference returns another customer's data without authorization, the application is vulnerable.
+
+\begin{lstlisting}[language=HTTP]
+GET /customer_account?customer_number=132356 HTTP/1.1
+\end{lstlisting}
+
+This may result in horizontal privilege escalation by allowing one customer to access another customer's information.
+
+\subsubsection{IDOR and Privileged Accounts}
+
+An IDOR may expose resources belonging to privileged users. Depending on the resource and the application's functionality, this could disclose sensitive information or expose privileged operations.
+When assessing impact, determine who owns the targeted resource and what permissions or sensitive information are associated with it. Accessing a privileged user's resource does not, by itself, grant the attacker that user's privileges.
+
+\subsubsection{Direct Reference to Static Files}
+
+IDOR can also affect files stored on the server, such as chat transcripts or documents, when the application exposes them through predictable or user-controlled paths.
+
+For example:
+\begin{lstlisting}[language=HTTP]
+GET /static/12144.txt HTTP/1.1
+\end{lstlisting}
+
+If changing the filename accesses another user's transcript:
+\begin{lstlisting}[language=HTTP]
+GET /static/12145.txt HTTP/1.1
+\end{lstlisting}
+
+and the server returns the file without enforcing the required access restrictions, this is an IDOR.
+Such files may contain private messages, personal information, credentials, or internal data, potentially leading to further compromise.
+
+\subsubsection{Database Objects vs. Static Files}
+
+\begin{itemize}
+    \item \textbf{Database object:} A parameter such as \texttt{customer\_number} identifies a database record.
+    \item \textbf{Static file:} A filename or URL path identifies a stored file.
+\end{itemize}
+
+Both can be vulnerable when access to the referenced resource is not properly authorized. Files served directly by a web server may require separate access controls because application-level checks can be bypassed if the files are publicly accessible.
+
+\subsubsection{Predictable Identifiers}
+
+Sequential identifiers and filenames can make unauthorized references easier to discover. However, predictability is not the root cause of IDOR.
+\[
+    \text{User-Controlled Reference}
+    +
+    \text{Insufficient Authorization}
+    \rightarrow
+    \text{Unauthorized Access}
+\]
+Unpredictable identifiers do not eliminate the vulnerability if an attacker obtains a valid reference and the server fails to enforce authorization.
+
+\subsection{Access Control Vulnerabilities in Multi-Step Processes}
+
+Multi-step processes may enforce access controls on some steps but omit them from others. An attacker can bypass the protected steps by directly submitting the request for an unprotected step with the required parameters.
+
+\textbf{Testing Workflow:}
+\begin{enumerate}
+    \item Capture the requests involved in the multi-step process using Burp Suite.
+    \item Identify the request responsible for the final action, such as confirming changes.
+    \item Replay this request using a low-privileged user's session and the required parameters.
+    \item Verify whether the protected action succeeds without proper authorization.
+\end{enumerate}
+
+\textbf{Key Point:} Every request performing a privileged action must enforce authorization independently, regardless of whether previous workflow steps were completed.
+
+\subsection{Referer-Based Access Control}
+
+Some applications rely on the HTTP \texttt{Referer} header to control access to sensitive endpoints instead of verifying the user's permissions.
+An attacker can modify this header to impersonate a request originating from an authorized page and bypass access controls.
+
+\textbf{Testing Workflow:}
+\begin{enumerate}
+    \item Log in using a low-privileged account and capture a request to a sensitive endpoint.
+    \item Send the request to Burp Repeater.
+    \item Modify the \texttt{Referer} header to point to the expected authorized page, such as \texttt{/admin}.
+    \item Resend the request and verify whether the action succeeds without proper authorization.
+\end{enumerate}
+
+\textbf{Example:}
+\begin{lstlisting}
+POST /admin/deleteUser HTTP/1.1
+Host: target.com
+Referer: https://target.com/admin
+Cookie: session=USER_SESSION
+Content-Type: application/x-www-form-urlencoded
+username=carlos
+\end{lstlisting}
+
+\textbf{Key Point:} The \texttt{Referer} header is client-controlled and must never be used as a substitute for server-side authorization checks.
+
+\subsection{Location-Based Access Control}
+
+Some applications restrict access to resources based on the user's geographical location, for example, due to legal requirements or regional content restrictions.
+These controls may be bypassed when applications rely on weak or client-controlled location information.
+
+\textbf{Testing Workflow:}
+\begin{enumerate}
+    \item Identify how the application determines the user's location, such as IP geolocation or browser-provided geolocation data.
+    \item Test access from permitted and restricted locations using an authorized testing environment.
+    \item Inspect requests and responses in Burp Suite to determine whether geographical restrictions are enforced server-side.
+    \item Test whether manipulating client-side location data or changing the apparent IP location bypasses the restriction.
+\end{enumerate}
+
+\textbf{Key Point:} Applications must enforce geographical restrictions server-side using an appropriate, trustworthy source of location information. A VPN or proxy bypass alone does not necessarily indicate a vulnerability.
+
+\subsection{How to Prevent Access Control Vulnerabilities}
+
+Access control vulnerabilities can be prevented by applying a defense-in-depth approach and enforcing authorization consistently across the application.
+
+\begin{enumerate}
+    \item \textbf{Never Rely on Obfuscation:}
+          Hiding URLs or using unpredictable paths does not prevent unauthorized access. Always enforce authorization on the server.
+    \item \textbf{Deny Access by Default:}
+          Deny access to resources unless explicitly permitted. Public access should only be allowed when intended.
+    \item \textbf{Use a Centralized Access Control Mechanism:}
+          Implement a consistent, application-wide mechanism, such as middleware or authorization policies, to reduce inconsistent or missing checks.
+    \item \textbf{Enforce Explicit Access Rules:}
+          Require developers to define authorization rules for protected resources and actions. Authentication alone does not guarantee permission to perform an action.
+    \item \textbf{Audit and Test Access Controls:}
+          Regularly test authorization rules for horizontal and vertical privilege escalation, direct endpoint access, multi-step process bypasses, and HTTP method or header manipulation.
+\end{enumerate}
+
+\textbf{Key Point:} Authentication identifies the user; authorization determines what the user is allowed to do. Every protected action must enforce appropriate server-side authorization.
+
+\end{document}

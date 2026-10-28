@@ -1,0 +1,739 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Vulnerability Notes}
+\newcommand{\VulnerabilityTitle}{Path Traversal}
+\newcommand{\SourceName}{PortSwigger Web Security Academy}
+\newcommand{\SourceURL}{https://portswigger.net/web-security/file-path-traversal}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codegray}{RGB}{95,95,95}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{Path Traversal}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large Concepts, Attack Techniques, Detection, and Defenses\par}
+
+    \vfill
+
+    \begin{flushleft}
+        \textbf{Reference}\\
+        \href{\SourceURL}{\SourceName}
+
+        \vspace{0.6cm}
+        \textbf{Prepared by}\\
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Notes
+% ----------------------------------
+
+\nsection{Path Traversal (Directory Traversal)}
+
+\nsubsection{Definition}
+
+\textbf{Path Traversal}, also known as \textbf{Directory Traversal}, is a web vulnerability that allows an attacker to access files and directories outside the application's intended directory by manipulating user-controlled file paths.
+Depending on the application's functionality and permissions, this vulnerability may allow attackers to read sensitive files or, in some cases, write files to unintended locations.
+
+\nsubsection{How It Works}
+
+Applications sometimes use user-supplied input to construct filesystem paths without properly validating the input.
+
+For example:
+\begin{lstlisting}[language=PHP]
+$file = $_GET['file'];
+include("images/" . $file);
+\end{lstlisting}
+
+A normal request supplies a filename such as:
+\begin{lstlisting}
+?file=cat.jpg
+\end{lstlisting}
+
+The application accesses:
+\begin{lstlisting}
+/images/cat.jpg
+\end{lstlisting}
+
+If the application does not properly validate the supplied filename, an attacker may provide directory traversal sequences such as:
+\begin{lstlisting}
+../../../etc/passwd
+\end{lstlisting}
+
+The resulting path becomes:
+\begin{lstlisting}
+/images/../../../etc/passwd
+\end{lstlisting}
+
+The filesystem resolves each \texttt{../} sequence by moving to the parent directory. The resulting path may resolve to:
+\begin{lstlisting}
+/etc/passwd
+\end{lstlisting}
+
+Consequently, the attacker may access files outside the intended directory.
+
+\newpage
+\nsubsection{Why It Is Called Directory Traversal}
+
+The attack uses path traversal sequences, most commonly \texttt{../} on Unix-like systems, to navigate from the intended directory to its parent directories until reaching a target file.
+
+For example:
+\begin{lstlisting}
+images/cat.jpg
+       |
+       | ../
+       v
+Parent directory
+       |
+       | ../
+       v
+Another parent directory
+       |
+       v
+Target file
+\end{lstlisting}
+
+On Windows, traversal may also use backslashes (\texttt{..\\}), depending on how the application and filesystem handle paths.
+
+\nsubsection{Potential Impact}
+
+The impact depends on the files accessible to the application process and the operations exposed by the vulnerable functionality.
+
+\nsubsubsection{Application Code and Data}
+
+An attacker may access files belonging to the application, including:
+\begin{itemize}
+    \item Source code
+    \item Configuration files
+    \item Log files and backups
+    \item Database files
+    \item Uploaded files
+\end{itemize}
+
+For example, exposing \texttt{config.php} may reveal sensitive application settings or credentials.
+
+\nsubsubsection{Back-End Credentials and Secrets}
+
+Files such as \texttt{.env} may contain credentials used by the application to communicate with other systems, including:
+\begin{itemize}
+    \item Database usernames and passwords
+    \item API keys and access tokens
+    \item SSH private keys
+    \item AWS credentials
+    \item Service account secrets
+\end{itemize}
+
+\newpage
+
+For example:
+\begin{lstlisting}
+DB_HOST=localhost
+DB_USER=admin
+DB_PASSWORD=secret123
+API_KEY=xxxxxxxx
+\end{lstlisting}
+
+Exposed credentials may allow an attacker to access databases, cloud resources, or other connected services.
+
+\nsubsubsection{Operating System Files}
+
+Path Traversal may expose sensitive operating system files.
+
+\textbf{Linux:}
+\begin{lstlisting}
+/etc/passwd
+/etc/shadow
+\end{lstlisting}
+
+The \texttt{/etc/shadow} file is normally restricted to privileged users.
+
+\textbf{Windows:}
+\begin{lstlisting}
+C:\Windows\win.ini
+C:\Windows\System32\drivers\etc\hosts
+\end{lstlisting}
+
+These files may reveal information about system configuration, users, and network settings.
+
+\nsubsubsection{Arbitrary File Writing}
+
+Although Path Traversal commonly results in unauthorized file reading, it may also enable arbitrary file writing when the vulnerable functionality performs file creation or modification.
+
+Depending on the application's permissions and execution environment, this may allow an attacker to:
+\begin{itemize}
+    \item Modify application data or configuration files.
+    \item Overwrite existing files.
+    \item Create malicious files or backdoors.
+    \item Alter application behavior.
+    \item Escalate privileges or achieve Remote Code Execution (RCE) in certain circumstances.
+\end{itemize}
+
+The ultimate impact depends on the application's file operations, filesystem permissions, and other security controls.
+
+\newpage
+\nsection{Reading Arbitrary Files via Path Traversal}
+
+\nsubsection{Overview}
+
+A common use of Path Traversal is to read arbitrary files from a server. This vulnerability occurs when an application uses user-controlled input to construct a file path without adequately validating or restricting the resulting path.
+
+\nsubsection{Example Scenario}
+
+Consider a shopping application that displays product images. The server returns the following HTML:
+\begin{lstlisting}[language=HTML]
+<img src="/loadImage?filename=218.png">
+\end{lstlisting}
+
+The browser requests the image:
+\begin{lstlisting}
+GET /loadImage?filename=218.png HTTP/1.1
+\end{lstlisting}
+
+The application receives \texttt{218.png} as the value of the \texttt{filename} parameter.
+
+\nsubsection{How the Application Reads the File}
+
+Assume that product images are stored in:
+\begin{lstlisting}
+/var/www/images/
+\end{lstlisting}
+
+The application appends the supplied filename to this base directory:
+\begin{lstlisting}[language=PHP]
+$file = "/var/www/images/" . $_GET['filename'];
+readfile($file);
+\end{lstlisting}
+
+For a normal request, the resulting path is:
+\begin{lstlisting}
+/var/www/images/218.png
+\end{lstlisting}
+
+The application reads the file and returns its contents to the browser.
+
+\nsubsection{Exploiting the Vulnerability}
+
+The vulnerability arises because the application trusts the supplied filename without ensuring that the resulting path remains inside the intended directory.
+
+An attacker can replace the image filename with a traversal payload:
+\begin{lstlisting}
+../../../etc/passwd
+\end{lstlisting}
+
+The resulting request is:
+\begin{lstlisting}
+GET /loadImage?filename=../../../etc/passwd HTTP/1.1
+\end{lstlisting}
+
+The application constructs the following path:
+\begin{lstlisting}
+/var/www/images/../../../etc/passwd
+\end{lstlisting}
+
+\nsubsection{Understanding Path Traversal Sequences}
+
+On Unix-like systems, the sequence \texttt{../} refers to the parent directory. Each occurrence moves one directory level upward during path resolution.
+
+Starting from:
+\begin{lstlisting}
+/var/www/images/
+\end{lstlisting}
+
+The traversal proceeds as follows:
+\begin{lstlisting}
+/var/www/images/../  -> /var/www/
+/var/www/../         -> /var/
+/var/../             -> /
+\end{lstlisting}
+
+The remaining path identifies the target file, \texttt{etc/passwd}. Therefore, the combined path resolves to:
+\begin{lstlisting}
+/etc/passwd
+\end{lstlisting}
+
+This process is known as \textbf{path resolution}. Path normalization simplifies path components such as \texttt{.} and \texttt{..}; canonicalization may additionally resolve filesystem-specific details, such as symbolic links, depending on the API used.
+
+\newpage
+\nsubsection{Reading Arbitrary Files}
+
+If traversal succeeds, the application may expose any file that its effective operating system permissions allow it to access. The impact depends on the application's privileges and the files available to the process.
+
+\nsubsection{Example Target: \texttt{/etc/passwd}}
+
+On Linux and other Unix-like systems, \texttt{/etc/passwd} is a standard file containing account information, including:
+\begin{itemize}
+    \item Username
+    \item User ID (UID)
+    \item Group ID (GID)
+    \item Home directory
+    \item Login shell
+\end{itemize}
+
+It is commonly used to demonstrate file-reading vulnerabilities because it is generally readable by unprivileged users. Password hashes are normally stored separately in \texttt{/etc/shadow}, which typically requires elevated privileges.
+
+\nsubsection{Windows Path Traversal}
+
+Windows paths commonly use backslashes (\texttt{..\\}) for parent-directory traversal. For example, a potential target is:
+\begin{lstlisting}
+C:\Windows\win.ini
+\end{lstlisting}
+
+A traversal payload may use backslashes:
+\begin{lstlisting}
+..\..\..\Windows\win.ini
+\end{lstlisting}
+
+Some applications and Windows APIs also accept forward slashes:
+\begin{lstlisting}
+../../../Windows/win.ini
+\end{lstlisting}
+
+Support for either separator depends on how the application, framework, and filesystem API process the supplied path.
+
+\newpage
+\nsection{Path Traversal: Common Obstacles and Bypass Techniques}
+
+\nsubsection{Overview}
+
+Applications often implement defenses against Path Traversal by removing or blocking traversal sequences, restricting paths to a specific directory, or enforcing file extensions. However, these defenses may be bypassed when validation is incomplete or different components interpret the input differently.
+
+\nsubsection{Request Processing and Filtering}
+
+A request may pass through several layers before the application accesses the filesystem:
+\begin{lstlisting}
+Browser
+   |
+   v
+Web Server / Proxy
+   |
+   v
+Framework
+   |
+   v
+Application Code
+   |
+   v
+Filesystem
+\end{lstlisting}
+
+These layers may perform URL decoding, input validation, path normalization, and file access. Differences in their processing order can introduce security weaknesses.
+
+\nsubsection{Absolute Path Bypass}
+
+\nsubsubsection{Problem}
+
+An application may block traversal sequences such as \texttt{../} without preventing absolute filesystem paths.
+
+For example:
+\begin{lstlisting}[language=PHP]
+$filename = str_replace("../", "", $filename);
+\end{lstlisting}
+
+\nsubsubsection{Bypass}
+
+Instead of using traversal sequences:
+\begin{lstlisting}
+../../../etc/passwd
+\end{lstlisting}
+
+an attacker may supply the absolute path directly:
+\begin{lstlisting}
+/etc/passwd
+\end{lstlisting}
+
+\nsubsubsection{Why It Works}
+
+An absolute path identifies a location from the filesystem root and does not require \texttt{../}. If the application accepts absolute paths and does not enforce a permitted base directory.
+
+\nsubsection{Nested Traversal Sequences}
+
+\nsubsubsection{Problem}
+
+Some applications remove traversal sequences rather than rejecting invalid input. This can be unsafe if the resulting string is not validated again.
+
+\nsubsubsection{Bypass}
+
+A nested sequence such as:
+\begin{lstlisting}
+....//
+\end{lstlisting}
+
+contains an inner \texttt{../} sequence. If that inner sequence is removed, the remaining characters can form another traversal sequence.
+
+For example, a single non-recursive replacement of \texttt{../} in:
+\begin{lstlisting}
+....//....//etc/passwd
+\end{lstlisting}
+
+can produce:
+\begin{lstlisting}
+../../etc/passwd
+\end{lstlisting}
+
+\nsubsubsection{Why It Works}
+
+The filter transforms the input into a valid traversal sequence instead of eliminating the underlying risk. The technique depends on the exact filtering logic and whether the transformed result is validated.
+
+\newpage
+\nsubsection{URL Encoding and Double URL Encoding}
+
+\nsubsubsection{URL Encoding}
+
+In some contexts, a web server or another intermediary may filter traversal sequences before passing the input to the application.
+
+The characters in \texttt{../} can be URL-encoded as:
+\begin{lstlisting}
+../       -> %2e%2e%2f
+\end{lstlisting}
+
+Here, \texttt{\%2e} represents a period and \texttt{\%2f} represents a forward slash.
+
+If an upstream component checks only for literal traversal sequences before decoding, the encoded value may bypass that check. A later decoding step may restore \texttt{../}.
+
+\nsubsubsection{Double URL Encoding}
+
+Double encoding encodes the percent signs in an already encoded value:
+\begin{lstlisting}
+../              -> %2e%2e%2f
+%2e%2e%2f        -> %252e%252e%252f
+\end{lstlisting}
+
+A possible processing sequence is:
+\begin{lstlisting}
+Client:
+%252e%252e%252f
+
+First decoding:
+%2e%2e%2f
+
+Second decoding:
+../
+\end{lstlisting}
+
+This bypass may work when a filter checks the value after one decoding pass, while another component decodes it again later. Success depends on the actual request-processing pipeline.
+
+\nsubsubsection{Non-standard Encodings}
+
+Alternative encodings have historically bypassed some implementations that interpreted encoded separators inconsistently.
+
+Examples include:
+\begin{lstlisting}
+..%c0%af
+..%ef%bc%8f
+\end{lstlisting}
+
+These sequences have been accepted as alternative representations of a slash by some legacy or non-standard implementations. They are not reliable, universally valid encodings and may be rejected by modern software.
+
+\nsubsubsection{Burp Suite}
+
+Burp Suite Professional includes a predefined Burp Intruder payload list named:
+\begin{lstlisting}
+Fuzzing - path traversal
+\end{lstlisting}
+
+It contains traversal-related payloads, including encoded variants
+
+\nsubsection{Validation of the Start of a Path}
+
+\nsubsubsection{Problem}
+
+An application may require the supplied path to start with a specific base directory, such as:
+\begin{lstlisting}
+/var/www/images
+\end{lstlisting}
+
+A weak implementation might check only the string prefix:
+\begin{lstlisting}[language=PHP]
+str_starts_with($filename, "/var/www/images")
+\end{lstlisting}
+
+\nsubsubsection{Bypass}
+
+An attacker may provide:
+\begin{lstlisting}
+/var/www/images/../../../etc/passwd
+\end{lstlisting}
+
+\nsubsubsection{Why It Works}
+
+The raw input begins with the expected directory, so a prefix-only check may accept it. However, path resolution can produce:
+\begin{lstlisting}
+/etc/passwd
+\end{lstlisting}
+
+The application validated the string's beginning rather than verifying the final resolved path.
+
+A secure check must ensure that the canonical path remains inside the intended directory.
+
+\nsubsection{File Extension Validation and Null Byte Injection}
+
+\nsubsubsection{Problem}
+
+An application may require a particular extension, such as \texttt{.png}, or append it automatically:
+\begin{lstlisting}[language=PHP]
+$file = $_GET['filename'] . ".png";
+\end{lstlisting}
+
+For example, the input:
+\begin{lstlisting}
+../../../etc/passwd
+\end{lstlisting}
+
+becomes:
+\begin{lstlisting}
+../../../etc/passwd.png
+\end{lstlisting}
+
+which ordinarily refers to a different file.
+
+\newpage
+\nsubsubsection{Historical Null Byte Bypass}
+
+A null byte has the value \texttt{0x00} and can be represented in a URL as \texttt{\%00}.
+
+Historically, some applications and C-based file APIs treated the null byte as the end of a string. An attacker could attempt to supply:
+\begin{lstlisting}
+../../../etc/passwd%00.png
+\end{lstlisting}
+
+If one component validated the extension but a later component interpreted the null byte as a string terminator, the effective filename could become:
+\begin{lstlisting}
+../../../etc/passwd
+\end{lstlisting}
+
+The required extension would then be ignored by that legacy component.
+
+\nsubsubsection{Modern Considerations}
+
+Modern runtimes and filesystem APIs generally reject null bytes in file paths rather than treating them as terminators. For example, modern PHP file operations reject paths containing null bytes.
+
+Consequently, this is primarily a historical technique relevant to legacy software and controlled training environments.
+
+\nsubsection{Summary of Bypass Techniques}
+
+\begin{center}
+    \small
+    \begin{tabular}{|p{0.22\linewidth}|p{0.31\linewidth}|p{0.34\linewidth}|}
+        \hline
+        \textbf{Defense}          & \textbf{Weakness}                                   & \textbf{Potential Bypass}                 \\
+        \hline
+        Block \texttt{../}        & Absolute paths remain accepted                      & \texttt{/etc/passwd}                      \\
+        \hline
+        Strip traversal sequences & Removal may create a new traversal sequence         & Nested traversal, such as \texttt{....//} \\
+        \hline
+        Filter encoded input      & Components may decode at different stages           & URL or double URL encoding                \\
+        \hline
+        Check the path prefix     & The resolved path may escape the directory          & \texttt{/var/www/images/}                 \\\texttt{../../../etc/passwd} \\
+        \hline
+        Enforce a file extension  & Legacy string handling may terminate at a null byte & \texttt{\%00} (historical)                \\
+        \hline
+    \end{tabular}
+\end{center}
+
+\newpage
+\nsection{Path Traversal Prevention}
+
+\nsubsection{Avoid User-Controlled File Paths}
+
+The strongest defense is to avoid passing user-controlled paths to filesystem APIs. Prefer indirect identifiers that the application maps to predefined files.
+
+Instead of:
+\begin{lstlisting}
+GET /image?filename=cat.png
+\end{lstlisting}
+
+use:
+\begin{lstlisting}
+GET /image?id=5
+\end{lstlisting}
+
+For example:
+\begin{lstlisting}[language=PHP]
+$id = $_GET['id'];
+
+$files = [
+    1 => "/var/www/images/logo.png",
+    2 => "/var/www/images/cat.png"
+];
+
+if (isset($files[$id])) {
+    readfile($files[$id]);
+}
+\end{lstlisting}
+
+The user selects an allowed identifier but never supplies the filesystem path.
+
+\nsubsection{Validate Input and Use a Trusted Base Directory}
+
+If user input must influence a path, validate it against a strict allowlist of permitted identifiers, filenames, or characters. Reject unexpected input rather than trying to sanitize it by removing strings such as \texttt{../}; blacklist filtering can be bypassed by alternative encodings or nested traversal sequences.
+Construct the path relative to a fixed, trusted base directory. However, prepending a base directory alone is insufficient: an input such as \texttt{../../../etc/passwd} may still escape it after path resolution.
+
+\nsubsection{Canonicalize and Verify Directory Containment}
+
+Canonicalization resolves path components such as \texttt{.} and \texttt{..}; depending on the API, it may also resolve symbolic links. For example:
+\begin{lstlisting}
+/var/www/images/../../../etc/passwd
+\end{lstlisting}
+
+may resolve to:
+\begin{lstlisting}
+/etc/passwd
+\end{lstlisting}
+
+After canonicalization, verify that the resolved path remains inside the authorized base directory. Do not rely on a naive prefix check: a path such as \texttt{/var/www/images-backup/file.txt} begins with the string \texttt{/var/www/images} but is not inside that directory.
+
+\nsubsection{Java Example}
+
+\begin{lstlisting}[language=Java]
+File base = new File(BASE_DIRECTORY).getCanonicalFile();
+File file = new File(base, userInput).getCanonicalFile();
+
+String basePath = base.getPath();
+String filePath = file.getPath();
+String allowedPrefix = basePath + File.separator;
+
+if (filePath.startsWith(allowedPrefix)) {
+    // Process the file
+} else {
+    // Reject the request
+}
+\end{lstlisting}
+
+The code canonicalizes both paths and requires the resulting file path to begin with the base directory followed by a path separator. This prevents a simple string-prefix collision and rejects paths that resolve outside the intended directory.
+
+This example is illustrative rather than a complete defense for every environment. Canonical-path checks can be affected by symbolic links and race conditions between validation and file access. Production code should use suitable path-aware APIs, control filesystem permissions, and avoid allowing untrusted users to modify the directory structure between checking and opening a file.
+
+\nsubsection{Best Practices}
+
+\begin{itemize}
+    \item Avoid user-controlled filesystem paths whenever possible.
+    \item Prefer indirect identifiers and strict allowlists.
+    \item Reject invalid input instead of modifying it with simple string replacement.
+    \item Build paths relative to a trusted base directory.
+    \item Canonicalize the path before validating its location.
+    \item Verify that the resolved path remains inside the authorized directory.
+    \item Apply appropriate filesystem permissions and account for symbolic links and race conditions.
+\end{itemize}
+
+\end{document}

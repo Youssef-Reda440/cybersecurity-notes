@@ -1,0 +1,230 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Lab Writeups}
+\newcommand{\VulnerabilityTitle}{Path Traversal}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codegray}{RGB}{95,95,95}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Labs}}
+\fancyhead[R]{\small\textit{Path Traversal Labs}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large PortSwigger Web Security Academy — Lab Solutions\par}
+
+    \vfill
+    \begin{flushleft}
+        \vspace{0.6cm}
+        \textbf{Prepared by}\par
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Notes
+% ----------------------------------
+
+\nsection{Lab: File Path Traversal, Simple Case}
+
+\begin{enumerate}
+    \item Use Burp Suite to intercept a request that fetches a product image.
+
+    \item Modify the \texttt{filename} parameter to the following payload:
+
+          \begin{lstlisting}
+../../../etc/passwd
+    \end{lstlisting}
+
+    \item Forward the modified request and inspect the response. The contents of \texttt{/etc/passwd} should be returned, solving the lab.
+\end{enumerate}
+
+\nsection{Lab: File Path Traversal, Traversal Sequences Blocked with Absolute Path Bypass}
+
+\begin{enumerate}
+    \item Use Burp Suite to intercept a request that fetches a product image.
+
+    \item Modify the \texttt{filename} parameter to the absolute path:
+
+          \begin{lstlisting}
+/etc/passwd
+    \end{lstlisting}
+
+    \item Forward the modified request and inspect the response. The contents of \texttt{/etc/passwd} should be returned, solving the lab.
+\end{enumerate}
+
+\nsection{Lab: File Path Traversal, Traversal Sequences Stripped Non-recursively}
+
+\begin{enumerate}
+    \item Use Burp Suite to intercept a request that fetches a product image.
+
+    \item Modify the \texttt{filename} parameter using the following payload to bypass the non-recursive traversal filter:
+
+          \begin{lstlisting}
+....//....//....//etc/passwd
+    \end{lstlisting}
+
+    \item Forward the modified request and inspect the response. The contents of \texttt{/etc/passwd} should be returned, solving the lab.
+\end{enumerate}
+
+\nsection{Lab: File Path Traversal, Traversal Sequences Stripped with Superfluous URL-decode}
+
+\begin{enumerate}
+    \item Use Burp Suite to intercept a request that fetches a product image.
+
+    \item Modify the \texttt{filename} parameter using the following double URL-encoded payload:
+
+          \begin{lstlisting}
+..%252f..%252f..%252fetc/passwd
+    \end{lstlisting}
+
+    \item Forward the modified request and inspect the response. The contents of \texttt{/etc/passwd} should be returned, solving the lab.
+\end{enumerate}
+
+\nsection{Lab: File Path Traversal, Validation of Start of Path}
+
+\begin{enumerate}
+    \item Use Burp Suite to intercept a request that fetches a product image.
+
+    \item Modify the \texttt{filename} parameter to include the expected base directory followed by traversal sequences:
+
+          \begin{lstlisting}
+/var/www/images/../../../etc/passwd
+    \end{lstlisting}
+
+    \item Forward the modified request and inspect the response. The contents of \texttt{/etc/passwd} should be returned, solving the lab.
+\end{enumerate}
+
+\nsection{Lab: File Path Traversal, Validation of File Extension with Null Byte Bypass}
+
+\begin{enumerate}
+    \item Use Burp Suite to intercept a request that fetches a product image.
+
+    \item Modify the \texttt{filename} parameter using the following payload to bypass the file extension validation:
+
+          \begin{lstlisting}
+../../../etc/passwd%00.png
+    \end{lstlisting}
+
+    \item Forward the modified request and inspect the response. The contents of \texttt{/etc/passwd} should be returned, solving the lab.
+\end{enumerate}
+
+\end{document}

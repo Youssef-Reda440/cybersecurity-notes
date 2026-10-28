@@ -1,0 +1,326 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Vulnerability Notes}
+\newcommand{\VulnerabilityTitle}{Remote file inclusion (RFI)}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codegray}{RGB}{95,95,95}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% define php language
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    stringstyle=\color{red},
+    commentstyle=\color{gray}\itshape,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    showstringspaces=false,
+    tabsize=4
+}
+
+\lstdefinelanguage{PHP}{
+    keywords={if, else, elseif, endif, include, require, echo, function, return, array},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]',
+    morestring=[b]"
+}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{RFI}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large Concepts, Attack Techniques, Detection, and Defenses\par}
+
+    \vfill
+
+    \begin{flushleft}
+        \textbf{Prepared by}\\
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Notes
+% ----------------------------------
+
+\nsection{Remote File Inclusion (RFI)}
+
+\nsubsection{Overview}
+
+Remote File Inclusion (RFI) is a web vulnerability that occurs when an application allows user-controlled input to specify a remote resource that is included and interpreted as code on the server.
+RFI can lead to Remote Code Execution (RCE), potentially allowing an attacker to execute commands on the target server.
+
+\nsubsection{How Works}
+
+Some programming languages allow files to be included from external URLs. RFI occurs when an application passes an insufficiently validated user-controlled URL to a file-inclusion mechanism.
+
+Example of vulnerable PHP code:
+\begin{lstlisting}[language=PHP]
+<?php
+$module = $_GET['module'];
+include $module;
+?>
+\end{lstlisting}
+
+In this example, the application uses the \texttt{module} parameter directly in \texttt{include()}, allowing the user to influence the resource being included.
+In PHP, successful remote inclusion through URL wrappers such as \texttt{http://} depends on the relevant runtime configuration, particularly \texttt{allow\_url\_include}. The setting is disabled by default in standard configurations and has been deprecated since PHP 7.4.0.
+
+\newpage
+\nsubsection{Example of RFI Exploitation}
+
+Consider an application running PHP 7.3.33 with the following configuration:
+\begin{lstlisting}
+allow_url_include = On
+\end{lstlisting}
+
+An attacker may manipulate the \texttt{module} parameter to reference a remote PHP file:
+\begin{lstlisting}
+http://example.com/index.php?module=http://server2.example.com/welcome.php
+\end{lstlisting}
+
+If the application accepts the URL and includes the remote content as PHP code, the code may execute on the target server, potentially resulting in RCE.
+The impact depends on the server configuration, the inclusion mechanism, and the privileges of the web application process.
+
+\nsubsection{RFI vs. Local File Inclusion (LFI)}
+
+\begin{itemize}
+    \item \textbf{RFI:} Includes a resource from a remote source and may execute attacker-controlled code when the necessary conditions are met.
+    \item \textbf{LFI:} Includes or accesses an unintended file available on the local server.
+\end{itemize}
+
+RFI is less common because applications rarely need to include source code from arbitrary remote locations, and successful remote inclusion in PHP depends on specific configuration settings.
+Unlike RFI, LFI commonly involves local file access and may overlap with path traversal vulnerabilities.
+
+\nsubsection{RFI vs. Server-Side Request Forgery (SSRF)}
+
+RFI and SSRF are distinct vulnerabilities:
+\begin{itemize}
+    \item \textbf{RFI:} The application includes remote content through a mechanism that may interpret it as executable code.
+    \item \textbf{SSRF:} The application is induced to send requests to attacker-influenced destinations, potentially exposing internal services or resources.
+\end{itemize}
+
+Fetching a remote URL does not automatically constitute RFI. The vulnerability depends on whether remote content is included and interpreted as code.
+
+\newpage
+\nsection{RFI Impact and Known Vulnerabilities}
+
+\nsubsection{Potential Consequences of RFI}
+
+Successful Remote File Inclusion (RFI) may lead to Remote Code Execution (RCE), allowing an attacker to execute code with the privileges of the web server process.
+The impact depends on the permissions of the web server user, system configuration, and access to other resources.
+
+Potential consequences include:
+\begin{itemize}
+    \item \textbf{Malware and Ransomware:} Installing malicious software or attempting to spread malware to other systems.
+    \item \textbf{Cryptocurrency Mining:} Using the compromised server's computing resources for unauthorized cryptocurrency mining.
+    \item \textbf{Sensitive Data Theft:} Accessing application data, credentials, or databases available to the compromised process.
+    \item \textbf{Backdoor Installation:} Establishing persistent access to the system when sufficient write permissions and other required conditions are available.
+\end{itemize}
+
+RCE does not automatically imply complete system compromise. Execution privileges are generally limited to those of the web server process unless additional weaknesses permit privilege escalation.
+
+\vspace{0.5cm}
+\nsubsection{Examples of Known RFI Vulnerabilities}
+
+\begin{itemize}
+    \item \textbf{CVE-2018-16283:} A historical RFI vulnerability associated with the Wechat Broadcast WordPress plugin version 1.2.0.
+    \item \textbf{CVE-2014-7228:} A historical RFI vulnerability associated with affected versions of Joomla.
+\end{itemize}
+
+These cases demonstrate that RFI vulnerabilities can occur in third-party plugins and content management systems, not only in custom application code.
+Version checks and dependency scanning can help identify known vulnerabilities. However, exploitability must be assessed against the affected versions and the specific deployment configuration.
+
+\newpage
+\nsection{RFI Detection, Prevention, and Mitigation}
+
+\nsubsection{How to Detect RFI Vulnerabilities}
+
+Detection depends on whether the vulnerability is already known or previously unidentified.
+
+\begin{itemize}
+    \item \textbf{Known Vulnerabilities:} Identify application and dependency versions, then use Software Composition Analysis (SCA) tools or appropriate security scanners to check for known CVEs.
+    \item \textbf{Unknown Vulnerabilities:} Review file-inclusion logic and perform authorized penetration testing to determine whether user-controlled input can trigger unsafe remote inclusion.
+    \item \textbf{Runtime Verification:} Analyze application behavior to confirm whether remote content can actually be included and interpreted as code.
+\end{itemize}
+
+Version detection indicates potential exposure but does not always confirm exploitability in a specific deployment. Runtime testing provides stronger evidence when performed safely and with authorization.
+
+\vspace{0.5cm}
+\nsubsection{How to Prevent RFI}
+
+\begin{itemize}
+    \item \textbf{Avoid User-Controlled Includes:} Never allow untrusted input from query parameters, request bodies, cookies, or HTTP headers to directly determine the resource passed to an inclusion function.
+    \item \textbf{Use Allowlists:} Map predefined identifiers to trusted local files instead of accepting arbitrary filenames or URLs.
+    \item \textbf{Avoid Blocklist-Only Validation:} Blocking known URLs, extensions, or character sequences is insufficient because alternative representations may bypass such filters.
+\end{itemize}
+
+Example of safer PHP code:
+\begin{lstlisting}[language=PHP]
+<?php
+$modules = [
+    'home' => __DIR__ . '/modules/home.php',
+    'about' => __DIR__ . '/modules/about.php'
+];
+
+$name = $_GET['module'] ?? 'home';
+
+if (isset($modules[$name])) {
+    include $modules[$name];
+} else {
+    http_response_code(404);
+}
+?>
+\end{lstlisting}
+
+The user selects a predefined identifier, while the application controls the actual file path.
+
+\newpage
+\nsubsection{How to Mitigate RFI in PHP}
+
+\begin{itemize}
+    \item \textbf{Use Supported PHP Versions:} Upgrade to a currently supported PHP release and apply security updates.
+    \item \textbf{Disable Remote Inclusion:} Ensure that \texttt{allow\_url\_include} is disabled in \texttt{php.ini}.
+\end{itemize}
+
+\begin{lstlisting}
+allow_url_include = Off
+\end{lstlisting}
+
+This disables remote URL inclusion through the PHP mechanisms governed by this setting. It does not replace secure input handling, and changing it may affect legacy applications that depend on remote inclusion.
+
+\vspace{1cm}
+\nsubsection{Vulnerability Classification}
+
+\begin{itemize}
+    \item \textbf{CAPEC-193:} Remote File Inclusion.
+    \item \textbf{CWE-98:} Improper Control of Filename for Include/Require Statement in PHP.
+    \item \textbf{WASC-5:} Remote File Inclusion.
+\end{itemize}
+
+OWASP Top 10 2021 category A1 refers to Broken Access Control and is not a specific classification for RFI.
+
+\end{document}

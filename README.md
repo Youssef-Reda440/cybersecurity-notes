@@ -2,4 +2,4 @@
 
 A collection of organized notes covering cybersecurity concepts and practical labs.
 
-The repository serves as a personal reference for learning and documenting cybersecurity topics.
+> A personal knowledge base documenting continuous learning and hands-on exploration of cybersecurity.

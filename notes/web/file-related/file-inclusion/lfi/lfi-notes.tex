@@ -1,0 +1,452 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Vulnerability Notes}
+\newcommand{\VulnerabilityTitle}{Local file inclusion (LFI)}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codegray}{RGB}{95,95,95}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% define php language
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    stringstyle=\color{red},
+    commentstyle=\color{gray}\itshape,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    showstringspaces=false,
+    tabsize=4
+}
+
+\lstdefinelanguage{PHP}{
+    keywords={if, else, elseif, endif, include, require, echo, function, return, array},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]',
+    morestring=[b]"
+}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{LFI}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large Concepts, Attack Techniques, Detection, and Defenses\par}
+
+    \vfill
+
+    \begin{flushleft}
+        \textbf{Prepared by}\\
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Notes
+% ----------------------------------
+
+\nsection{Local File Inclusion (LFI)}
+
+\nsubsection{Overview}
+
+LFI is a web vulnerability that occurs when an application uses insufficiently validated user-controlled input to select and include a local file.
+
+For example, in PHP:
+\begin{lstlisting}[language=PHP]
+<?php
+$page = $_GET['page'];
+include($page);
+?>
+\end{lstlisting}
+
+The application passes the user-controlled \texttt{page} parameter directly to \texttt{include()}, potentially allowing unintended files to be included.
+
+\nsubsubsection{How PHP \texttt{include()} Handles Files}
+
+The \texttt{include()} function is not restricted to PHP files. It can include any readable file, but the resulting behavior depends on the file's contents and how PHP processes it.
+
+\begin{itemize}
+    \item \textbf{PHP files:} PHP code is executed when included.
+    \item \textbf{Plain-text files:} Their contents are generally treated as output rather than executed as PHP code.
+    \item \textbf{Binary files:} Their contents may produce unexpected or unusable output; they are not automatically executed as PHP code.
+\end{itemize}
+
+The file extension alone does not determine whether a file can be included. File accessibility, PHP's processing behavior, and application-specific restrictions also matter.
+
+\nsubsection{How LFI Can Lead to a Breach}
+
+Local File Inclusion (LFI) can expose sensitive files on a web server when an application uses insufficiently validated user input to determine which files to load.
+
+The impact can extend beyond file disclosure:
+\begin{enumerate}
+    \item \textbf{File Disclosure:} Access sensitive files such as \texttt{/etc/passwd}.
+    \item \textbf{Credential Exposure:} Discover database credentials, API keys, or tokens in configuration files such as \texttt{.env}.
+    \item \textbf{Unauthorized Access:} Abuse exposed credentials to access other services, provided the credentials are valid and the services are reachable.
+    \item \textbf{Further Compromise:} Chain LFI with other weaknesses to potentially achieve Remote Code Execution (RCE) or compromise additional systems.
+\end{enumerate}
+
+These outcomes depend on file permissions, application behavior, and the availability of additional attack paths. LFI does not automatically lead to RCE.
+
+\newpage
+\nsubsection{How LFI Attacks Work in Real Applications}
+
+\nsubsubsection{User-Controlled File Paths}
+
+LFI can occur when an application uses user-controlled input to determine which file to include or access without proper restrictions.
+
+Common input sources include:
+\begin{itemize}
+    \item Query parameters and form inputs.
+    \item Cookies.
+    \item HTTP headers, such as \texttt{User-Agent}.
+    \item Other user-controlled values used in file selection.
+\end{itemize}
+
+Example of vulnerable PHP code:
+\begin{lstlisting}[language=PHP]
+<?php
+$file = $_GET['file'];
+include($file);
+?>
+\end{lstlisting}
+
+The application passes the user-controlled \texttt{file} parameter directly to \texttt{include()}, potentially allowing unintended files to be included.
+User-controlled input alone does not constitute a vulnerability; the risk arises when it influences file selection without adequate restrictions.
+
+\newpage
+\nsubsubsection{Preventing LFI with an Allowlist}
+
+A safer approach is to map predefined page identifiers to specific file paths rather than allowing users to supply arbitrary paths.
+
+\begin{lstlisting}[language=PHP]
+<?php
+$allowed = [
+    'home'  => 'home.php',
+    'about' => 'about.php'
+];
+
+$page = $_GET['page'] ?? 'home';
+
+if (array_key_exists($page, $allowed)) {
+    include(__DIR__ . '/pages/' . $allowed[$page]);
+} else {
+    http_response_code(404);
+}
+?>
+\end{lstlisting}
+
+\begin{itemize}
+    \item \texttt{\$allowed}: Maps permitted page identifiers to predefined filenames.
+    \item \texttt{array\_key\_exists()}: Checks whether the requested identifier is allowlisted.
+    \item \texttt{\_\_DIR\_\_}: Provides the directory of the current PHP file, helping construct a predictable path.
+    \item Invalid identifiers are rejected with an HTTP 404 response.
+\end{itemize}
+
+This approach prevents users from directly specifying arbitrary file paths. The mapped files and their directories must still be protected against unauthorized modification.
+
+\nsubsubsection{LFI Beyond PHP}
+
+Similar vulnerabilities can occur in other languages when user-controlled input determines which file is accessed.
+
+Examples include:
+\begin{itemize}
+    \item \textbf{PHP:} \texttt{include()}.
+    \item \textbf{Python:} File-serving functions such as \texttt{send\_file()}.
+    \item \textbf{Node.js:} File-system functions such as \texttt{fs.readFile()}.
+    \item \textbf{Java:} Resource-loading mechanisms.
+\end{itemize}
+
+Using these functions does not automatically introduce LFI. The vulnerability depends on how file paths are constructed, validated, and restricted.
+
+\newpage
+\nsection{LFI Exploitation}
+
+\nsubsection{Exploitation: Path Manipulation}
+
+Attackers exploit LFI by manipulating user-controlled file paths to access unintended files or alternative data sources.
+
+\nsubsubsection{Path Traversal}
+
+The \texttt{../} sequence moves up one directory level and may allow access outside the intended directory.
+
+\begin{lstlisting}
+?page=../../../../etc/passwd
+\end{lstlisting}
+
+Encoded traversal sequences may bypass inadequate filters. For example, \texttt{\%2e\%2e\%2f} represents \texttt{../} after URL decoding.
+
+\nsubsubsection{Null Byte Injection}
+
+The \texttt{\%00} sequence represents a null byte. Older PHP versions (before PHP 5.3.4) could interpret null bytes as string terminators in file paths, enabling certain extension-validation bypasses. This is a legacy technique and does not generally apply to modern PHP versions.
+
+\nsubsubsection{PHP Wrapper Abuse}
+
+PHP wrappers can change how an inclusion source is accessed or processed.
+
+\begin{lstlisting}
+?file=php://filter/convert.base64-encode/resource=index.php
+\end{lstlisting}
+
+The \texttt{php://filter} wrapper can Base64-encode a file's contents, potentially exposing PHP source code without executing the original code during inclusion.
+The \texttt{php://input} and \texttt{data://} wrappers can provide alternative data sources. Under specific conditions, including suitable PHP configuration and unsafe inclusion behavior, they may contribute to Remote Code Execution (RCE).
+Basic sanitization and blocklists are insufficient as standalone defenses because alternative encodings and path representations may bypass them. Prefer strict allowlists and controlled file mappings.
+
+\nsubsection{Reconnaissance: Sensitive File Disclosure}
+
+Once unintended file access is established, attackers may investigate files that reveal application details, credentials, or runtime information.
+
+\begin{itemize}
+    \item \texttt{/etc/passwd}: Local account information on Linux.
+    \item \texttt{/var/www}: Application source code and related files, depending on the deployment.
+    \item \texttt{.env}: Potential database credentials, API keys, and other secrets.
+    \item \texttt{/var/log/apache2/access.log}: HTTP access logs that may contain user-controlled input.
+    \item \texttt{/var/log/apache2/error.log}: Server and application error information.
+    \item \texttt{/proc/self/environ}: Environment variables available to the current process, potentially including secrets.
+\end{itemize}
+
+File accessibility depends on operating-system permissions, the web application's privileges, and the deployment environment.
+
+\newpage
+\nsubsection{Escalation: Chaining LFI with Other Vulnerabilities}
+
+LFI may be combined with other weaknesses to increase its impact.
+
+\nsubsubsection{Sensitive Data Exposure}
+
+Reading configuration files may reveal credentials or tokens that could enable unauthorized access to other services if they remain valid and are usable by the attacker.
+
+\nsubsubsection{LFI to Cross-Site Scripting (XSS)}
+
+Including attacker-controlled HTML or JavaScript in a response without appropriate output handling may lead to XSS. In this case, the code executes in the victim's browser rather than on the server.
+
+\nsubsubsection{LFI to Remote Code Execution (RCE)}
+
+RCE may be possible when LFI allows attacker-controlled content to be included and interpreted as PHP code.
+
+Common chaining techniques include:
+\begin{itemize}
+    \item \textbf{Log Poisoning:} Injecting attacker-controlled content into a writable log, then including that log through the vulnerable functionality. Execution requires the included content to be interpreted as PHP code.
+    \item \textbf{File Upload Abuse:} Uploading a file containing attacker-controlled content and forcing the application to include it. This depends on upload permissions, file accessibility, and PHP's processing behavior.
+\end{itemize}
+
+LFI does not automatically result in RCE. Successful escalation requires additional conditions that allow attacker-controlled content to be executed.
+
+\nsubsection{High-Value Targets in LFI}
+
+Files that may provide useful information or enable further attacks include:
+\begin{itemize}
+    \item \textbf{Environment and secrets files:} Database credentials, API keys, and cloud tokens.
+    \item \textbf{Application configuration:} Connection strings, authentication secrets, and internal service endpoints.
+    \item \textbf{Source code:} Hidden functionality, application logic, and additional vulnerabilities.
+    \item \textbf{Logs and writable files:} Potential sources of attacker-controlled content for vulnerability chaining.
+    \item \textbf{Cloud and container secrets:} Cloud credential files, mounted secrets, and Kubernetes service account tokens.
+\end{itemize}
+
+Exposure of cloud or container credentials may extend the impact beyond the web application, depending on the permissions associated with those credentials.
+
+\newpage
+\nsection{LFI vs. Related Vulnerabilities}
+
+\nsubsection{LFI vs. Remote File Inclusion (RFI)}
+
+\begin{itemize}
+    \item \textbf{Local File Inclusion (LFI):} The application includes a file available on the local server.
+    \item \textbf{Remote File Inclusion (RFI):} The application includes a file from an external source, provided the language, runtime configuration, and application behavior permit it.
+\end{itemize}
+
+RFI may allow an attacker to supply a malicious remote file, potentially resulting in Remote Code Execution (RCE). LFI can also lead to RCE when combined with additional weaknesses that enable attacker-controlled code execution.
+
+\nsubsection{LFI vs. Path Traversal}
+
+\begin{itemize}
+    \item \textbf{Path Traversal:} Manipulates file paths to access files outside the intended directory or access scope.
+    \item \textbf{LFI:} Exploits application logic that includes or loads an unintended local file.
+\end{itemize}
+
+Example of path manipulation:
+\begin{lstlisting}
+?file=../../etc/passwd
+\end{lstlisting}
+
+If the application reads and returns the file contents, the issue is generally classified as Path Traversal. If the input is passed to a file-inclusion mechanism such as PHP's \texttt{include()}, the issue may be classified as LFI.
+The vulnerabilities can overlap, but neither necessarily implies the other. Path Traversal does not require file inclusion or code execution, while LFI does not always require \texttt{../} sequences.
+
+\newpage
+\nsection{Real-World Impact of LFI Vulnerabilities}
+
+LFI vulnerabilities can have significant security and business consequences, depending on the files exposed and the possibility of chaining the vulnerability with other weaknesses.
+
+\begin{itemize}
+    \item \textbf{Sensitive Information Disclosure:} Exposure of confidential data, application source code, and configuration files.
+    \item \textbf{Credential Compromise:} Disclosure of database credentials, API keys, or tokens that may enable unauthorized access to other services.
+    \item \textbf{Infrastructure Compromise:} Access to internal systems or cloud resources through exposed credentials and excessive permissions.
+    \item \textbf{Remote Code Execution (RCE):} Potential server-side code execution when LFI is chained with additional weaknesses.
+    \item \textbf{Business and Compliance Impact:} Data breaches may result in regulatory consequences, financial losses, incident response costs, and reputational damage.
+\end{itemize}
+
+\nsubsection{Historical Example: TimThumb}
+
+TimThumb, a PHP image-processing library, suffered from historical vulnerabilities that enabled attackers to compromise websites through weaknesses in file handling and related exploitation techniques.
+This illustrates how a file-handling vulnerability can lead to broader compromise when combined with additional weaknesses.
+The actual severity of an LFI vulnerability depends on the demonstrated impact, accessible files, application permissions, and available exploitation paths. RCE and full server compromise must not be assumed without sufficient evidence.
+
+\newpage
+\nsection{LFI Prevention and Detection}
+
+\nsubsection{How to Prevent LFI Vulnerabilities}
+
+\begin{itemize}
+    \item \textbf{Avoid Dynamic File Includes:} Do not use user input directly to determine which files to load. Map user selections to predefined resources.
+    \item \textbf{Use Allowlists:} Restrict file selection to explicitly permitted values instead of relying on blocklists, which may be bypassed.
+    \item \textbf{Use Indirect References:} Allow users to select internal identifiers rather than supplying filenames or paths directly.
+    \item \textbf{Normalize and Validate Paths:} Canonicalize paths and verify that the resolved file remains within the permitted directory.
+    \item \textbf{Restrict File Access:} Apply least-privilege permissions, separate writable directories from executable files, and consider PHP's \texttt{open\_basedir} setting and operating-system isolation.
+    \item \textbf{Patch Dependencies:} Update vulnerable libraries and frameworks. A Web Application Firewall (WAF) can provide additional protection but should not replace secure application logic.
+    \item \textbf{Test Continuously:} Integrate automated scanning, code review, and authorized penetration testing into the Software Development Life Cycle (SDLC).
+\end{itemize}
+
+\nsubsection{How to Detect LFI Vulnerabilities}
+
+\begin{itemize}
+    \item \textbf{Static Application Security Testing (SAST):} Analyzes source code to identify potentially unsafe data flows into file-handling functions, such as \texttt{include()}, \texttt{require()}, and \texttt{file\_get\_contents()} in PHP.
+    \item \textbf{Software Composition Analysis (SCA):} Identifies vulnerable dependencies and versions associated with known CVEs.
+    \item \textbf{Dynamic Application Security Testing (DAST):} Tests a running application using controlled inputs and analyzes responses for evidence of unintended file access.
+\end{itemize}
+
+Static analysis findings require contextual review. A potentially dangerous function does not automatically indicate an exploitable vulnerability.
+
+\nsubsection{How Automated Scanners Detect LFI}
+
+DAST scanners typically follow these steps:
+\begin{enumerate}
+    \item \textbf{Crawling:} Discover application pages, parameters, and other accessible inputs.
+    \item \textbf{Payload Injection:} Submit test inputs designed to identify unintended local file access.
+    \item \textbf{Response Analysis:} Examine application responses for evidence that a local file was accessed.
+    \item \textbf{Verification:} Validate the evidence to reduce false positives and distinguish exploitable vulnerabilities from theoretical risks.
+\end{enumerate}
+
+Automated detection coverage depends on application accessibility, authentication requirements, input validation, and the scanner's testing capabilities. Manual testing may still be necessary to identify missed cases.
+
+\end{document}

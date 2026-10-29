@@ -1,0 +1,289 @@
+\documentclass[11pt,a4paper]{article}
+
+% ----------------------------------
+% Packages
+% ----------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% ----------------------------------
+% Document information
+% ----------------------------------
+\newcommand{\DocumentType}{Lab Writeups}
+\newcommand{\VulnerabilityTitle}{Business Logic}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% ----------------------------------
+% Colors and hyperlinks
+% ----------------------------------
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codegray}{RGB}{95,95,95}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+
+\urlstyle{same}
+
+% ----------------------------------
+% Paragraphs, lists, and headings
+% ----------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings that still appear in the Table of Contents.
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% ----------------------------------
+% Header and footer
+% ----------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{Business Logic Labs}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+
+\begin{document}
+
+% ----------------------------------
+% Cover page
+% ----------------------------------
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large PortSwigger Web Security Academy --- Lab Solutions\par}
+
+    \vfill
+    \begin{flushleft}
+        \vspace{0.6cm}
+        \textbf{Prepared by}\par
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% ----------------------------------
+% Contents
+% ----------------------------------
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ----------------------------------
+% Lab solutions
+% ----------------------------------
+
+\nsection{Lab: Excessive Trust in Client-Side Controls}
+
+\begin{enumerate}
+    \item Log in with \texttt{wiener:peter} and attempt to buy the Lightweight l33t leather jacket; note that the order is rejected because the store credit is insufficient.
+    \item In Burp HTTP history, inspect the cart workflow and send the \texttt{POST /cart} request to Repeater. Identify the client-supplied \texttt{price} parameter.
+    \item Change \texttt{price} to an arbitrary integer and resend the request. Refresh the cart to confirm that the server accepts the modified price.
+    \item Set the price to an amount below the available store credit, then complete the order.
+\end{enumerate}
+
+\nsection{Lab: High-Level Logic Vulnerability}
+
+\begin{enumerate}
+    \item Log in with \texttt{wiener:peter} and add a cheap item to the cart.
+    \item In Burp HTTP history, inspect \texttt{POST /cart} and identify the \texttt{quantity} parameter.
+    \item Intercept another \texttt{POST /cart} request and change the quantity to an arbitrary integer. Forward the remaining requests and verify that the cart quantity changes.
+    \item Repeat with a negative quantity. Use a suitable negative value to make the cart contain a negative quantity and produce a negative total.
+    \item Add the Lightweight l33t leather jacket, then add a suitable negative quantity of another item to bring the total below the remaining store credit.
+    \item Place the order.
+\end{enumerate}
+
+\nsection{Lab: Inconsistent Security Controls}
+
+\begin{enumerate}
+    \item Use Burp Target Site map to discover content for the lab domain. Start the content discovery session and identify \texttt{/admin}.
+    \item Browse to \texttt{/admin}. The denial message indicates that users with the \texttt{dontwannacry.com} email domain are permitted.
+    \item Register an account using an arbitrary address in the format \texttt{anything@YOUR-EMAIL-ID.web-security-academy.net}; obtain the email ID from the lab's Email client.
+    \item Open the confirmation email and activate the account.
+    \item Log in, open My account, and change the email address to an arbitrary \texttt{@dontwannacry.com} address.
+    \item Open the admin panel and delete \texttt{carlos}.
+\end{enumerate}
+
+\nsection{Lab: Flawed Enforcement of Business Rules}
+
+\begin{enumerate}
+    \item Log in with \texttt{wiener:peter}. Note the \texttt{NEWCUST5} coupon and subscribe to the newsletter to obtain \texttt{SIGNUP30}.
+    \item Add the Lightweight l33t leather jacket to the cart and proceed to checkout.
+    \item Apply both coupon codes. Test applying the same code twice and observe that consecutive reuse is blocked.
+    \item Alternate between \texttt{NEWCUST5} and \texttt{SIGNUP30} to bypass the reuse restriction and reduce the total below the remaining store credit.
+    \item Complete the order.
+\end{enumerate}
+
+\nsection{Lab: Low-Level Logic Flaw}
+
+\begin{enumerate}
+    \item Log in with \texttt{wiener:peter} and attempt to buy the jacket. In Burp, send the \texttt{POST /cart} request to Repeater.
+    \item Notice that each request accepts a two-digit quantity. Send the request to Intruder and set the quantity to \texttt{99}.
+    \item Select the Null payloads payload type and choose Continue indefinitely. Start the attack.
+    \item While it runs, refresh the cart and monitor the total. Repeated additions eventually overflow the signed 32-bit integer limit, causing the price to wrap from \texttt{2147483647} to \texttt{-2147483648}.
+    \item Clear the cart. Create a new Intruder attack with exactly 323 null payloads. In Resource pool, set Maximum concurrent requests to \texttt{1}, then start the attack.
+    \item When it finishes, send one \texttt{POST /cart} request from Repeater with quantity \texttt{47} for the jacket. The total should be \texttt{-\$1221.96}.
+    \item Add a suitable quantity of another item so the total is above \$0 and below the remaining \$100 store credit.
+    \item Place the order.
+\end{enumerate}
+
+\nsection{Lab: Inconsistent Handling of Exceptional Input}
+
+\begin{enumerate}
+    \item Use Burp content discovery to find \texttt{/admin}. The access-denied response indicates that \texttt{dontwannacry.com} users can access it.
+    \item Open the lab Email client and note your unique email ID.
+    \item Register using an email address with a local part at least 200 characters long, for example \url{very-long-string@YOUR-EMAIL-ID.web-security-academy.net}. Activate the account through the confirmation email.
+    \item Log in and open My account. Observe that the stored email address has been truncated to 255 characters.
+    \item Register a second account using a sufficiently long local part and this domain: \url{@dontwannacry.com.YOUR-EMAIL-ID.web-security-academy.net}. Adjust the local-part length so the final \texttt{m} in \texttt{@dontwannacry.com} is character 255.
+    \item Activate the second account using the email client, then log in and verify that the truncated address is treated as a valid \texttt{@dontwannacry.com} address.
+    \item Open the admin panel and delete \texttt{carlos}.
+\end{enumerate}
+
+\nsection{Lab: Weak Isolation on Dual-Use Endpoint}
+
+\begin{enumerate}
+    \item Log in with \texttt{wiener:peter} and open My account.
+    \item Change your password and send the \texttt{POST /my-account/change-password} request to Burp Repeater.
+    \item Remove the \texttt{current-password} parameter and resend the request. Observe that the password change succeeds without the current password.
+    \item Change the \texttt{username} parameter to \texttt{administrator} and set a password of your choice. Send the request.
+    \item Log out, sign in as \texttt{administrator} using the new password, then open the admin panel and delete \texttt{carlos}.
+\end{enumerate}
+
+\nsection{Lab: Insufficient Workflow Validation}
+
+\begin{enumerate}
+    \item Log in with \texttt{wiener:peter} and buy any item affordable with your store credit.
+    \item In Burp history, locate the \texttt{POST /cart/checkout} request and note the redirect to the order confirmation page.
+    \item Send \texttt{GET /cart/order-confirmation?order-confirmation=true} to Repeater.
+    \item Add the Lightweight l33t leather jacket to the cart, then resend the order-confirmation request.
+    \item Observe that the order completes without deducting the jacket's cost from your store credit.
+\end{enumerate}
+
+\nsection{Lab: Authentication Bypass via Flawed State Machine}
+
+\begin{enumerate}
+    \item Log in and observe that the application asks you to select a role before opening the home page.
+    \item Use Burp content discovery to identify \texttt{/admin}.
+    \item Try browsing to \texttt{/admin} from the role-selection stage and confirm that access is not yet granted.
+    \item Log out, enable Burp interception, and log in again.
+    \item Forward \texttt{POST /login}, then drop the following \texttt{GET /role-selector} request.
+    \item Browse to the lab home page. The role defaults to administrator, granting access to the admin panel.
+    \item Delete \texttt{carlos}.
+\end{enumerate}
+
+\nsection{Lab: Infinite Money Logic Flaw}
+
+\begin{enumerate}
+    \item Log in with \texttt{wiener:peter} and subscribe to the newsletter to obtain the \texttt{SIGNUP30} coupon.
+    \item Buy a \$10 gift card, apply \texttt{SIGNUP30} at checkout, complete the order, and copy the generated gift-card code.
+    \item Open My account and redeem the code. Confirm that the process adds \$3 to your store credit.
+    \item In Burp history, identify the \texttt{POST /gift-card} request and its \texttt{gift-card} parameter.
+    \item Open Settings > Sessions and add a session-handling rule. Under Scope, select Include all URLs.
+    \item Under Rule actions, select Run a macro and create a macro containing, in order: \texttt{POST /cart}, \texttt{POST /cart/coupon}, \texttt{POST /cart/checkout}, \url{GET /cart/order-confirmation?order-confirmed=true}, and \texttt{POST /gift-card}.
+    \item Configure the order-confirmation response to extract the generated gift-card code as a custom parameter named \texttt{gift-card}. Configure \texttt{POST /gift-card} to use that value from response 4.
+    \item Test the macro and verify that the gift-card value matches and the redemption request returns a redirect response. Save the rule.
+    \item Send \texttt{GET /my-account} to Intruder, choose Sniper and Null payloads, and set the attack to generate 412 payloads.
+    \item Set the attack's Resource pool Maximum concurrent requests to \texttt{1}, then start the attack. After it finishes, use the accumulated store credit to buy the jacket.
+\end{enumerate}
+
+\nsection{Lab: Authentication Bypass via Encryption Oracle}
+
+\begin{enumerate}
+    \item Log in with Stay logged in enabled and post a comment. Inspect the encrypted \texttt{stay-logged-in} cookie in Burp.
+    \item Submit a comment with an invalid email address. Observe the encrypted \texttt{notification} cookie and the reflected error text \texttt{Invalid email address: your-invalid-email}.
+    \item Send \texttt{POST /post/comment} and the corresponding \texttt{GET /post?postId=x} request to Repeater. Rename the tabs \texttt{encrypt} and \texttt{decrypt}.
+    \item In the decrypt request, replace the \texttt{notification} cookie with the \texttt{stay-logged-in} cookie and send it. Note the decrypted format, \texttt{wiener:timestamp}, and copy the timestamp.
+    \item In the encrypt request, set the email parameter to \texttt{administrator:timestamp}. Copy the resulting notification cookie and test it with the decrypt request.
+    \item Decode the cookie with URL decoding followed by Base64 decoding. The decrypted notification reveals the fixed 23-byte prefix \texttt{Invalid email address: }.
+    \item Add nine characters before the intended value, for example \texttt{xxxxxxxxxadministrator:timestamp}, then encrypt it.
+    \item URL-decode and Base64-decode the new cookie. In Repeater's Hex view, remove the first 32 bytes (two 16-byte blocks), then re-encode the remaining data.
+    \item Test the modified ciphertext with the decrypt request and confirm that the plaintext is only \texttt{administrator:timestamp}.
+    \item Send \texttt{GET /} to Repeater, remove the session cookie, and replace \texttt{stay-logged-in} with the forged ciphertext. Send the request and verify administrator access.
+    \item Open \texttt{/admin} and request \texttt{/admin/delete?username=carlos}.
+\end{enumerate}
+
+\nsection{Bypassing Access Controls Using Email Address Parsing Discrepancies}
+
+\begin{enumerate}
+    \item Open Register and try \texttt{foo@exploit-server.net}. Confirm that registration is blocked because the permitted domain is \texttt{ginandjuice.shop}.
+    \item Test the following ISO-8859-1 address and observe the security block: \url{=?iso-8859-1?q?=61=62=63?=foo@ginandjuice.shop}.
+    \item Test the UTF-8 variation \url{=?utf-8?q?=61=62=63?=foo@ginandjuice.shop}; observe that it is also blocked.
+    \item Test \url{=?utf-7?q?&AGEAYgBj-?=foo@ginandjuice.shop}. This variation passes the initial security check.
+    \item Register using \url{=?utf-7?q?attacker&AEA-[YOUR-EXPLOIT-SERVER-ID]&ACA-?=@ginandjuice.shop}, replacing the placeholder with your exploit-server ID.
+    \item Open the Email client and follow the confirmation link. The validation component accepts the apparent \texttt{ginandjuice.shop} domain, while the mail-processing component interprets the recipient as the exploit-server address.
+    \item Log in with the new account, open the Admin panel, and delete \texttt{carlos}.
+\end{enumerate}
+
+\end{document}

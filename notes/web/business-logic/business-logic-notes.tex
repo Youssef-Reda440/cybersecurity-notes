@@ -1,0 +1,432 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2.1cm,bottom=2.1cm,left=2.25cm,right=2.25cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+
+% Document information
+\newcommand{\DocumentType}{Vulnerability Notes}
+\newcommand{\VulnerabilityTitle}{Business Logic Vulnerabilities}
+\newcommand{\SourceName}{PortSwigger Web Security Academy}
+\newcommand{\SourceURL}{https://portswigger.net/web-security/logic-flaws}
+\newcommand{\AuthorName}{Youssef Reda}
+
+% Colors and hyperlinks
+\definecolor{primary}{RGB}{25,55,95}
+\definecolor{secondary}{RGB}{75,95,120}
+\definecolor{linkblue}{RGB}{35,85,155}
+\definecolor{codebg}{RGB}{247,248,250}
+\definecolor{codeframe}{RGB}{210,216,224}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    framesep=7pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    aboveskip=6pt,
+    belowskip=6pt,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2
+}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=linkblue,
+    citecolor=primary,
+    pdftitle={\VulnerabilityTitle\space - \DocumentType},
+    pdfauthor={\AuthorName}
+}
+\urlstyle{same}
+
+% Paragraphs, lists, and headings
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\setlist[itemize]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=2pt,topsep=3pt}
+\titleformat{\section}{\Large\bfseries\color{primary}}{}{0pt}{}
+\titleformat{\subsection}{\large\bfseries\color{secondary}}{}{0pt}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% Unnumbered headings included in the Table of Contents
+\newcommand{\nsection}[1]{%
+  \section*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{section}{#1}%
+}
+\newcommand{\nsubsection}[1]{%
+  \subsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsection}{#1}%
+}
+\newcommand{\nsubsubsection}[1]{%
+  \subsubsection*{#1}%
+  \phantomsection%
+  \addcontentsline{toc}{subsubsection}{#1}%
+}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{secondary}{Web Security Notes}}
+\fancyhead[R]{\small\textit{Business Logic}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+
+\begin{document}
+
+% Cover page (layout preserved)
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+
+    \vspace*{1.8cm}
+    {\Large\color{secondary}\bfseries \DocumentType\par}
+
+    \vspace{1.2cm}
+    {\Huge\bfseries\color{primary}\VulnerabilityTitle\par}
+
+    \vspace{0.8cm}
+    {\large Concepts, Attack Techniques, Detection, and Defenses\par}
+
+    \vfill
+
+    \begin{flushleft}
+        \textbf{Reference}\\
+        \href{\SourceURL}{\SourceName}
+
+        \vspace{0.6cm}
+        \textbf{Prepared by}\\
+        \AuthorName
+    \end{flushleft}
+\end{titlepage}
+
+% Contents
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% Notes
+\nsection{Business Logic Vulnerabilities}
+
+\nsubsection{Definition and Core Concepts}
+
+Business logic vulnerabilities are flaws in an application's design or implementation that let attackers misuse legitimate functionality to produce unintended results. They occur when business rules, constraints, or workflows are missing, inconsistent, or incorrectly enforced.
+Business rules define what the application should allow. Examples include requiring payment before confirming an order, restricting coupon use, enforcing inventory limits, and allowing refunds only for eligible purchases. A logic flaw exists when the application fails to enforce such a rule.
+
+\nsubsection{Business Logic vs. Technical Vulnerabilities}
+
+Technical vulnerabilities, such as SQL injection, XSS, and command injection, often follow recognizable technical patterns. Business logic vulnerabilities depend on application-specific rules and workflows. An application can be protected against common technical attacks while still allowing payment bypasses, discount abuse, or unauthorized actions.
+
+\nsubsection{Unexpected Input and Application States}
+
+Attackers may submit missing, negative, oversized, or unexpected values; modify parameters between requests; repeat requests; skip workflow steps; or combine legitimate features in unintended ways. Pay particular attention to transaction-critical values such as prices, quantities, discounts, balances, shipping costs, user IDs, roles, and permissions.
+
+\nsubsection{Detection and Testing}
+
+These flaws are difficult to detect automatically because testing requires an understanding of intended application behavior. First map the normal workflow and business rules, then test whether the server enforces them when requests or application state are manipulated.
+
+\begin{enumerate}
+    \item Identify the intended workflow and required conditions.
+    \item List business rules, limits, and assumptions.
+    \item Skip, repeat, or reorder steps where safe to test.
+    \item Modify important values and omit optional or required parameters.
+    \item Combine legitimate features and check their interactions.
+    \item Verify actual state changes, not only the HTTP response.
+    \item Assess whether the result violates a rule or provides an unauthorized advantage.
+\end{enumerate}
+
+\nsubsection{Example: Transaction Amount Manipulation}
+
+If a product costs \$100, the server must verify that the amount paid matches the valid order total before confirming the order. If an attacker changes a client-controlled payment amount to \$1 and the server still confirms the \$100 order, the application has failed to enforce a transaction rule.
+
+\newpage
+\nsection{How Business Logic Vulnerabilities Arise}
+
+\nsubsection{Flawed Assumptions}
+
+Developers may assume users will use only the interface, submit valid input, complete every step, follow the expected sequence, and never replay or directly invoke requests. These assumptions become vulnerabilities when the server relies on them instead of enforcing the rules itself.
+
+\nsubsection{Client-Side Validation Only}
+
+Client-side controls improve usability but are not a security boundary. An attacker can intercept and modify requests using tools such as Burp Suite. Any security-sensitive constraint must be revalidated server-side.
+
+\begin{lstlisting}
+POST /purchase
+quantity=100
+\end{lstlisting}
+
+If the interface limits quantity to 10 but the server accepts the modified request, the restriction is ineffective.
+
+\nsubsection{Unexpected Workflow and Application State}
+
+A server must verify that prerequisites are satisfied at the time an operation is performed. For example, it should not trust that a user reviewed the cart or paid merely because the browser normally sends requests in that order. Recheck current prices, cart contents, payment status, and authorization before finalizing a transaction.
+
+\nsubsection{Interactions Between Components}
+
+Components may behave correctly in isolation while their combination creates a flaw. For example, a coupon may be limited to one use and refunds may be legitimate, but an inconsistent refund workflow might restore neither the coupon state nor the usage count correctly, allowing reuse.
+
+\nsubsection{Responsibility Gaps and Poor Documentation}
+
+Different developers may each assume another component performs a required validation, leaving the check unimplemented. Unclear code and undocumented assumptions make these gaps harder to detect. Document workflows, data flows, business rules, component responsibilities, and side effects.
+
+\nsubsection{How a Logic Flaw Develops}
+
+\begin{lstlisting}
+Flawed assumption
+      |
+      v
+Missing or inconsistent validation
+      |
+      v
+Unexpected user action or state
+      |
+      v
+Application violates a business rule
+\end{lstlisting}
+
+\newpage
+\nsection{Impact of Business Logic Vulnerabilities}
+
+The severity depends on the affected functionality and the realistic consequences. Possible impacts include:
+\begin{itemize}
+    \item \textbf{Authentication bypass:} Accessing accounts or protected functionality without satisfying required checks.
+    \item \textbf{Privilege escalation:} Performing actions reserved for higher-privileged users.
+    \item \textbf{Financial loss and fraud:} Manipulating prices, transfers, balances, discounts, refunds, or payments.
+    \item \textbf{Data exposure:} Accessing sensitive information through improperly enforced workflows or permissions.
+    \item \textbf{Business disruption:} Causing unauthorized transactions, operational problems, unexpected costs, or reputational damage.
+\end{itemize}
+
+Assess which functionality is affected, what an attacker can achieve, whether other attack surfaces become accessible, and the likely impact on users and the business.
+
+\newpage
+\nsection{Common Business Logic Flaws}
+
+\nsubsection{Excessive Trust in Client-Side Controls}
+
+The application relies on browser-side restrictions to enforce rules. Attackers can modify client-controlled parameters or send requests directly.
+
+\nsubsubsection{Testing}
+\begin{enumerate}
+    \item Identify values restricted by the interface, such as price, quantity, role, or discount.
+    \item Intercept the request and modify the relevant value.
+    \item Submit the request and verify that the server independently enforces the rule.
+    \item Check the resulting application state for unauthorized changes.
+\end{enumerate}
+
+Client-side validation is useful for usability; server-side validation is mandatory for security.
+
+\nsubsection{Failing to Handle Unconventional Input}
+
+Applications may validate only data type or format without checking whether a value makes sense under the business rules. For example, a numeric transfer amount may still be invalid if it is negative or exceeds a permitted limit.
+
+\nsubsubsection{Boundary and Type Testing}
+
+Test values that are relevant to the field and its rules:
+\begin{itemize}
+    \item Negative, zero, minimum, and maximum values.
+    \item Values just below or above known boundaries.
+    \item Very large or small values.
+    \item Empty values, omitted parameters, unexpected types, and unusual formats.
+\end{itemize}
+
+Data-type validation does not guarantee business-rule validation. For example, a check that only verifies whether a transfer amount is less than the balance may accept a negative amount:
+
+\begin{lstlisting}[language=PHP]
+if ($transferAmount <= $currentBalance) {
+    // Complete transfer
+}
+\end{lstlisting}
+
+The server must also enforce that the amount is positive and satisfies all transaction rules. Use Burp Repeater to compare normal requests with carefully modified requests, then verify state changes.
+
+\newpage
+\nsubsection{Making Flawed Assumptions About User Behavior}
+
+Do not assume users will supply every parameter, remain trustworthy after an initial check, or follow the intended workflow. Validate each sensitive operation against the current server-side state.
+
+\nsubsubsection{Trusted Users Won't Always Remain Trustworthy}
+
+A user or value validated earlier may later become untrusted or change. Recheck authorization and relevant data when performing each sensitive action; do not treat an earlier check as permanent permission for all later operations.
+
+\nsubsubsection{Users Won't Always Supply Mandatory Input}
+
+Applications may behave unexpectedly when a parameter is missing or empty. Test the original value, an empty value, and a completely omitted parameter separately.
+
+\begin{enumerate}
+    \item Record the normal request and response.
+    \item Replace the parameter with an empty value.
+    \item Remove the parameter entirely.
+    \item Compare responses, redirects, and any state changes.
+    \item Repeat for relevant URL parameters, POST fields, and cookies.
+\end{enumerate}
+
+The server should reject missing required input explicitly instead of entering an unintended code path or relying on client-side required-field checks.
+
+\nsubsubsection{Users Won't Always Follow the Intended Sequence}
+
+Test whether users can skip, repeat, reorder, or directly access workflow steps. For example, an application must verify that a user has completed the required authentication stages before granting access to a protected endpoint.
+
+\begin{enumerate}
+    \item Complete the normal workflow and identify requests for each step.
+    \item Replay a later request without completing its prerequisites.
+    \item Repeat requests to check for duplicate operations.
+    \item Return to earlier steps and modify data after later steps have occurred.
+    \item Verify that each endpoint checks the current state and required permissions.
+\end{enumerate}
+
+Use Burp Proxy and Repeater to inspect and replay requests. Forced browsing or direct endpoint access may reveal missing server-side workflow checks. Errors can also disclose assumptions about required steps or parameters.
+
+\newpage
+\nsubsection{Domain-Specific Flaws}
+
+These flaws arise from incorrect assumptions about the application's business domain or algorithms. They require understanding how the system is supposed to work and how state changes affect related features.
+
+\nsubsubsection{Discounts and State Inconsistency}
+
+Discounts, refunds, cancellations, inventory, and order state must remain consistent across the entire workflow. Test whether a legitimate operation, such as a refund, incorrectly enables a discount or coupon to be reused.
+
+\nsubsubsection{User-Controlled Conditions and Algorithms}
+
+Identify values that influence business decisions and determine whether the user can manipulate them. Understand the calculation or decision process, then test edge cases and interactions between features. A value that appears harmless in one component may have unexpected effects in another.
+
+\nsubsubsection{Combining Legitimate Functions}
+
+Individually valid features can produce an invalid result when combined. Test related features together and verify that business rules remain enforced across purchases, cancellations, refunds, subscriptions, and account changes.
+
+\vspace{0.5cm}
+\nsubsection{Providing an Encryption Oracle}
+
+An encryption oracle accepts plaintext and returns ciphertext. It is not inherently vulnerable; the risk arises when an attacker can submit chosen plaintext and reuse the resulting ciphertext in another feature that trusts its decrypted contents.
+
+\nsubsubsection{Encryption, Encoding, and Decryption}
+
+\begin{itemize}
+    \item \textbf{Encoding/decoding:} Changes or restores a representation, such as Base64 or URL encoding; it does not provide confidentiality.
+    \item \textbf{Encryption/decryption:} Uses a cryptographic algorithm and key to transform plaintext into ciphertext and recover it.
+    \item A cookie may contain URL-encoded, Base64-encoded ciphertext. Reverse these representation layers before examining the binary ciphertext; decoding alone does not decrypt it.
+\end{itemize}
+
+\begin{lstlisting}
+URL decode -> Base64 decode -> ciphertext
+                               |
+                               v
+                    Decryption requires key
+                               |
+                               v
+                            Plaintext
+\end{lstlisting}
+
+\nsubsubsection{When It Becomes Dangerous}
+
+The oracle may be exploitable if another component accepts compatible ciphertext and uses the decrypted data for authentication, authorization, transactions, or other sensitive decisions. Compatibility depends on more than the algorithm or key: mode, IV/nonce, authentication tag, padding, and expected format may matter.
+A decryption oracle may reveal plaintext or only observable results, such as whether decryption or validation succeeded. It can help identify a data format, but it is not always necessary if the expected plaintext is already known.
+
+\nsubsubsection{Lab: Authentication Bypass via Encryption Oracle}
+
+In the lab, a notification feature encrypts user-controlled input, while the persistent-login mechanism processes a \texttt{stay-logged-in} cookie. The notification error adds a fixed prefix, and examining the relevant behavior reveals that the persistent-login plaintext contains a username and timestamp:
+
+\begin{lstlisting}
+wiener:timestamp
+\end{lstlisting}
+
+The encryption uses 16-byte blocks. The error prefix is 23 bytes, so adding nine characters makes the unwanted prefix occupy 32 bytes:
+\[
+    23 + 9 = 32 = 2 \times 16 \text{ bytes}
+\]
+
+After obtaining the ciphertext, the lab solution removes the first 32 bytes and tests the remaining ciphertext in the persistent-login context. In a hex editor, 32 bytes correspond to 64 hexadecimal characters, not 32 hex characters. This behavior depends on the lab's encryption mode and is not a universal property of encryption.
+If the modified cookie is accepted as administrator login data, it can bypass authentication. The underlying issue is that attacker-influenced ciphertext is accepted in a security-sensitive context without adequate integrity protection and validation.
+
+\nsubsubsection{Testing and Prevention}
+
+\begin{enumerate}
+    \item Identify encrypted cookies, tokens, and parameters.
+    \item Determine the expected plaintext structure where possible.
+    \item Check whether other components accept ciphertext generated by the oracle.
+    \item Assess whether decrypted values influence identity, permissions, or transactions.
+    \item Verify integrity protection and independent server-side authorization checks.
+\end{enumerate}
+
+Prefer authenticated encryption (such as an appropriate AEAD scheme), verify authentication tags, avoid unnecessary encryption/decryption oracles, and never treat encryption alone as proof that data is trustworthy.
+
+\newpage
+\nsubsection{Email Address Parser Discrepancies}
+
+A parser discrepancy occurs when different application components interpret the same email address differently. For example, registration validation may inspect one representation while the email-processing component decodes or parses it differently, allowing the confirmation message to reach an attacker-controlled address.
+
+\nsubsubsection{Encoded-Word Syntax}
+
+Email headers may use the Encoded-Word form:
+\begin{lstlisting}
+=?charset?encoding?encoded-text?=
+\end{lstlisting}
+
+The charset identifies the character encoding, the encoding field commonly uses \texttt{Q} or \texttt{B}, and the final field contains encoded text. For example:
+\begin{lstlisting}
+=?iso-8859-1?q?=61=62=63?=
+\end{lstlisting}
+
+represents \texttt{abc}. Different parsers or decoding stages may handle encoded input differently.
+
+\nsubsubsection{UTF-7 and the Lab}
+
+In UTF-7, sequences such as \texttt{\&AEA-} can represent \texttt{@}, and \texttt{\&ACA-} can represent a space. The lab demonstrates that some Encoded-Word variations are blocked while a UTF-7 variation is processed differently.
+The attack relies on a mismatch between the address checked by registration validation and the recipient derived by email processing. A crafted address can appear to satisfy the trusted-domain restriction to one component while being interpreted as an attacker-controlled recipient by another.
+
+\nsubsubsection{Lab: Bypassing Access Controls Using Email Address Parsing Discrepancies}
+
+\begin{enumerate}
+    \item Confirm that a registration address outside the permitted domain is blocked.
+    \item Test encoded variants and observe whether validation treats them differently.
+    \item Use the lab's UTF-7-based address construction with the supplied exploit-server identifier.
+    \item Check the exploit server's email client for the confirmation message.
+    \item Follow the confirmation link, access the administrative functionality, and delete the designated user to complete the lab.
+\end{enumerate}
+
+The lesson is to validate the canonical email address that will actually be used, and to apply consistent parsing and normalization across validation, account storage, and email delivery.
+
+\newpage
+\nsection{How to Prevent Business Logic Vulnerabilities}
+
+\nsubsection{Understand the Application Domain}
+
+Developers and testers must understand the business rules, workflows, and constraints the application is intended to enforce.
+
+\nsubsection{Avoid Implicit Assumptions}
+
+Do not assume users will follow the intended workflow or that other components always provide valid data. Identify assumptions about server-side state and verify them before proceeding.
+
+\nsubsection{Validate Inputs and State Server-Side}
+
+Check that input is sensible and permitted by the business rules. Before sensitive operations, verify current state, authorization, required workflow steps, and transaction values. Client-side validation alone is insufficient.
+
+\nsubsection{Use Clear Development Practices}
+\begin{itemize}
+    \item Maintain design documents and data flows for transactions and workflows.
+    \item Write clear, readable code and document unavoidable complexity.
+    \item Define which component is responsible for each validation.
+    \item Review dependencies and side effects if inputs or component behavior are manipulated.
+    \item Analyze the root cause of each discovered flaw to prevent recurrence.
+\end{itemize}
+
+\end{document}
